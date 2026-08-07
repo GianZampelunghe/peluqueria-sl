@@ -41,7 +41,6 @@ create table if not exists bookings (
 );
 
 -- Índice único parcial: Evita duplicar reservas activas (pendientes o completadas) para una misma fecha y hora.
--- Permite que un cliente reserve un horario previamente cancelado por otro.
 create unique index if not exists unique_active_booking 
 on bookings (booking_date, booking_time) 
 where (status != 'cancelled');
@@ -65,7 +64,25 @@ create table if not exists daily_slots (
 create index if not exists idx_daily_slots_date on daily_slots (date);
 
 
--- 5. TRIGGER DE FIDELIZACIÓN AUTOMÁTICA
+-- 5. TABLA DE GALERÍA DINÁMICA DE TRABAJOS
+create table if not exists gallery (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  category text, -- Tipo de corte (ej: "Fade", "Clásico", "Barba")
+  image_url text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Insertar algunos trabajos de muestra por defecto
+insert into gallery (title, category, image_url) values
+('Fade Texturizado', 'Urbano ⚽', 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80'),
+('Buzz Cut & Línea', 'Tendencia 🔥', 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=600&auto=format&fit=crop&q=80'),
+('Perfilado de Barba', 'Detalle 💈', 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=600&auto=format&fit=crop&q=80'),
+('Corte Clásico Foyth', 'Selección 🏆', 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600&auto=format&fit=crop&q=80'),
+('High Fade Diseñado', 'Urbano ⚡', 'https://images.unsplash.com/photo-1605497746445-97d1b0a9ead9?w=600&auto=format&fit=crop&q=80');
+
+
+-- 6. TRIGGER DE FIDELIZACIÓN AUTOMÁTICA
 -- Suma o resta automáticamente un corte al cliente según cambie el estado del turno.
 create or replace function handle_booking_status_change()
 returns trigger as $$
@@ -94,7 +111,7 @@ begin
     where id = client_id_found;
   end if;
 
-  -- Asegurarse de que el client_id en bookings esté sincronizado
+  -- Sincronizar client_id en la tabla bookings
   if new.client_id is null or new.client_id != client_id_found then
     new.client_id := client_id_found;
   end if;
@@ -103,7 +120,7 @@ begin
 end;
 $$ language plpgsql;
 
--- Crear trigger para la tabla bookings
+-- Crear trigger
 create or replace trigger trg_booking_status_change
 before insert or update on bookings
 for each row

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Clock, User, Phone, CheckCircle, AlertTriangle, ArrowRight, CornerDownRight } from 'lucide-react';
+import { Calendar, Clock, User, Phone, CheckCircle, AlertTriangle, ArrowRight, CornerDownRight, MessageCircle } from 'lucide-react';
 
 interface SchedulerProps {
   onSuccess: () => void;
@@ -145,14 +145,10 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       return;
     }
 
-    // Normalizar número de teléfono (solo números, formato apto para WhatsApp)
     let cleanPhone = phone.replace(/\D/g, '');
-    
-    // Si no empieza con código de país de Argentina (54), pero tiene 10 dígitos, añadirlo por defecto
     if (cleanPhone.length === 10) {
-      cleanPhone = '549' + cleanPhone; // Formato celular internacional argentino
+      cleanPhone = '549' + cleanPhone;
     } else if (cleanPhone.length === 11 && cleanPhone.startsWith('15')) {
-      // Caso clásico de ingreso con 15 local
       cleanPhone = '549' + cleanPhone.slice(2);
     } else if (cleanPhone.length === 11 && cleanPhone.startsWith('9')) {
       cleanPhone = '54' + cleanPhone;
@@ -162,7 +158,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       setSubmitting(true);
       setErrorMessage('');
 
-      // 1. Buscar si el cliente ya existe por número de teléfono
+      // Buscar si el cliente ya existe por número de teléfono
       let clientId: string | null = null;
       const { data: existingClient, error: clientSearchError } = await supabase
         .from('clients')
@@ -190,7 +186,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
         clientId = newClient.id;
       }
 
-      // 2. Insertar el turno en bookings
+      // Insertar el turno en bookings
       const { error: bookingError } = await supabase
         .from('bookings')
         .insert({
@@ -203,14 +199,13 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
         });
 
       if (bookingError) {
-        // Capturar error de solapamiento del índice único
         if (bookingError.code === '23505') {
           throw new Error('Ese turno acaba de ser reservado por otra persona hace unos instantes. Por favor, selecciona otro horario.');
         }
         throw bookingError;
       }
 
-      // Todo correcto, guardar datos para pantalla final
+      // Guardar datos para pantalla final
       setCreatedBooking({
         fullname: fullname.trim(),
         date: selectedDate,
@@ -218,7 +213,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       });
 
       setStep(4);
-      onSuccess(); // Disparar actualización en cascada si es necesario
+      onSuccess();
     } catch (err: any) {
       console.error('Error al reservar:', err);
       setErrorMessage(err.message || 'Ocurrió un error inesperado al guardar el turno. Intentá de nuevo.');
@@ -227,7 +222,6 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
     }
   };
 
-  // Crear el enlace a WhatsApp con el mensaje prearmado
   const getWhatsAppLink = () => {
     if (!createdBooking) return '';
     const dateLabel = formatDateLabel(createdBooking.date);
@@ -237,38 +231,38 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-8 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold mx-auto mb-4"></div>
-        <p className="text-zinc-400 text-sm">Consultando agenda de Santiago...</p>
+      <div className="max-w-md mx-auto bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-sl mx-auto mb-4"></div>
+        <p className="text-slate-500 text-sm">Consultando agenda de Santiago...</p>
       </div>
     );
   }
 
   return (
-    <div id="booking-section" className="max-w-md mx-auto bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-6 shadow-2xl relative scroll-mt-6">
+    <div id="booking-section" className="max-w-md mx-auto bg-white border border-slate-200 rounded-2xl p-6 shadow-md relative scroll-mt-6 text-slate-800">
       {/* Indicador de pasos */}
       {step < 4 && (
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">📅</span>
             <div>
-              <h3 className="text-sm font-bold text-white">Reservá Online</h3>
-              <p className="text-[10px] text-zinc-500">Peluquería SL • Rápido y directo</p>
+              <h3 className="text-sm font-bold text-blue-sl">Reservá tu Turno</h3>
+              <p className="text-[10px] text-slate-500">Peluquería SL • Rápido y directo</p>
             </div>
           </div>
-          <div className="flex gap-1 text-[10px] text-zinc-400 font-bold bg-zinc-950 px-2 py-1 rounded-md">
-            <span className={step === 1 ? 'text-gold' : ''}>Fecha</span>
+          <div className="flex gap-1 text-[10px] text-slate-500 font-bold bg-slate-50 border border-slate-150 px-2 py-1 rounded-md">
+            <span className={step === 1 ? 'text-rojo-sl' : ''}>Fecha</span>
             <span>/</span>
-            <span className={step === 2 ? 'text-gold' : ''}>Hora</span>
+            <span className={step === 2 ? 'text-rojo-sl' : ''}>Hora</span>
             <span>/</span>
-            <span className={step === 3 ? 'text-gold' : ''}>Datos</span>
+            <span className={step === 3 ? 'text-rojo-sl' : ''}>Datos</span>
           </div>
         </div>
       )}
 
       {errorMessage && (
-        <div className="mb-4 bg-red-950/40 border border-red-900/50 text-red-200 text-xs p-3.5 rounded-xl flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 text-xs p-3.5 rounded-xl flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -276,23 +270,23 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       {/* PASO 1: SELECCIONAR FECHA */}
       {step === 1 && (
         <div>
-          <label className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3 block">
+          <label className="text-xs text-slate-450 uppercase tracking-wider font-extrabold mb-3 block">
             Paso 1: Seleccioná el Día
           </label>
           {datesList.length === 0 ? (
             <div className="text-center py-8">
               <span className="text-4xl block mb-3">💈</span>
-              <p className="text-sm text-zinc-300 font-semibold mb-2">No hay fechas activas</p>
-              <p className="text-xs text-zinc-500 px-4">
+              <p className="text-sm text-slate-700 font-bold mb-2">No hay fechas activas</p>
+              <p className="text-xs text-slate-500 px-4">
                 Santiago no ha habilitado turnos en los próximos días. Consultale directamente:
               </p>
               <a
                 href={`https://wa.me/${appConfig.whatsapp_number}?text=Hola+Santiago!+Quiero+consultar+por+turnos+disponibles+para+cortarme.`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-gold hover:bg-gold-hover text-[#0F0F11] font-bold text-xs rounded-lg transition-all"
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-rojo-sl hover:bg-rojo-sl-hover text-white font-bold text-xs rounded-lg transition-all"
               >
-                Enviar WhatsApp
+                Consultar por WhatsApp
               </a>
             </div>
           ) : (
@@ -303,15 +297,15 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
                   <button
                     key={date}
                     onClick={() => handleDateSelect(date)}
-                    className="w-full px-4 py-3.5 bg-zinc-950 border border-zinc-800 hover:border-gold/30 rounded-xl flex items-center justify-between text-left group transition-all cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 hover:border-rojo-sl/30 hover:bg-rojo-sl/5 rounded-xl flex items-center justify-between text-left group transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-4.5 h-4.5 text-gold" />
-                      <span className="text-sm font-bold text-zinc-200 group-hover:text-white transition-colors">
+                      <Calendar className="w-4.5 h-4.5 text-blue-sl" />
+                      <span className="text-sm font-bold text-slate-700 group-hover:text-blue-sl transition-colors">
                         {formatDateLabel(date)}
                       </span>
                     </div>
-                    <span className="text-[10px] bg-zinc-900 text-zinc-400 group-hover:text-gold px-2 py-1 rounded-md border border-zinc-800 group-hover:border-gold/20 transition-all font-medium">
+                    <span className="text-[10px] bg-white text-slate-500 group-hover:text-rojo-sl px-2 py-1 rounded-md border border-slate-200 group-hover:border-rojo-sl/20 transition-all font-bold">
                       {availableCount} {availableCount === 1 ? 'libre' : 'libres'}
                     </span>
                   </button>
@@ -328,16 +322,16 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => setStep(1)}
-              className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 cursor-pointer"
+              className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer font-bold"
             >
               ← Volver a fechas
             </button>
-            <span className="text-xs font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/20">
+            <span className="text-xs font-bold text-rojo-sl bg-rojo-sl/5 px-2 py-0.5 rounded-full border border-rojo-sl/10">
               {formatDateLabel(selectedDate)}
             </span>
           </div>
 
-          <label className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3 block">
+          <label className="text-xs text-slate-450 uppercase tracking-wider font-extrabold mb-3 block">
             Paso 2: Seleccioná el Horario
           </label>
 
@@ -346,7 +340,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
               <button
                 key={time}
                 onClick={() => handleTimeSelect(time)}
-                className="py-3 bg-zinc-950 border border-zinc-800 hover:border-gold/50 rounded-xl text-center font-bold text-sm text-zinc-200 hover:text-white transition-all cursor-pointer hover:bg-gold/5"
+                className="py-3 bg-slate-50 border border-slate-200 hover:border-rojo-sl/40 hover:bg-rojo-sl/5 rounded-xl text-center font-extrabold text-sm text-slate-700 hover:text-blue-sl transition-all cursor-pointer"
               >
                 {time}
               </button>
@@ -362,54 +356,54 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 cursor-pointer"
+              className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer font-bold"
             >
               ← Volver a horarios
             </button>
-            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+            <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-200">
               📅 {formatDateLabel(selectedDate)} - ⏰ {selectedTime} hs
             </span>
           </div>
 
-          <label className="text-xs text-zinc-400 uppercase tracking-wider font-bold mb-3 block">
+          <label className="text-xs text-slate-450 uppercase tracking-wider font-extrabold mb-3 block">
             Paso 3: Tus Datos
           </label>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-[11px] text-zinc-500 mb-1.5 font-bold uppercase">
+              <label className="block text-[10px] text-slate-500 mb-1.5 font-bold uppercase">
                 Nombre y Apellido
               </label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   required
                   placeholder="Ej: Thiago Silva"
                   value={fullname}
                   onChange={(e) => setFullname(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white placeholder-zinc-650 focus:border-gold focus:outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none transition-all font-medium"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] text-zinc-500 mb-1.5 font-bold uppercase">
+              <label className="block text-[10px] text-slate-500 mb-1.5 font-bold uppercase">
                 Número de WhatsApp (con código de área)
               </label>
               <div className="relative">
-                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="tel"
                   required
                   placeholder="Ej: 2216543210 (sin 15)"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white placeholder-zinc-650 focus:border-gold focus:outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none transition-all font-medium"
                 />
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1.5 leading-normal flex items-start gap-1">
-                <CornerDownRight className="w-3 h-3 text-zinc-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-slate-400 mt-1.5 leading-normal flex items-start gap-1">
+                <CornerDownRight className="w-3 h-3 text-slate-455 shrink-0 mt-0.5" />
                 <span>Lo usamos para verificar tus cortes y avisarte del 7mo gratis.</span>
               </p>
             </div>
@@ -417,7 +411,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full mt-6 py-4 bg-gold hover:bg-gold-hover disabled:bg-zinc-850 disabled:text-zinc-600 text-[#0F0F11] font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full mt-6 py-4 bg-rojo-sl hover:bg-rojo-sl-hover disabled:bg-slate-200 disabled:text-slate-400 text-white font-black rounded-xl shadow-md shadow-rojo-sl/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
             >
               {submitting ? (
                 <span>Reservando...</span>
@@ -435,31 +429,32 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       {/* PASO 4: CONFIRMACIÓN Y REDIRECCIÓN */}
       {step === 4 && createdBooking && (
         <div className="text-center py-6">
-          <div className="w-16 h-16 bg-emerald-950/50 border border-emerald-900 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce">
-            <CheckCircle className="w-8 h-8 text-emerald-400" />
+          <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 text-emerald-555 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-emerald-500" />
           </div>
           
-          <h3 className="text-xl font-black text-white mb-2">¡Turno Agendado!</h3>
-          <p className="text-sm text-zinc-400 max-w-xs mx-auto mb-6">
-            Hola <span className="text-white font-bold">{createdBooking.fullname}</span>, tu turno para el <span className="text-white font-bold">{formatDateLabel(createdBooking.date)}</span> a las <span className="text-white font-bold">{createdBooking.time} hs</span> fue registrado en el sistema.
+          <h3 className="text-xl font-black text-blue-sl mb-2">¡Turno Reservado!</h3>
+          <p className="text-sm text-slate-600 max-w-xs mx-auto mb-6">
+            Hola <span className="text-slate-900 font-bold">{createdBooking.fullname}</span>, tu turno para el <span className="text-slate-900 font-bold">{formatDateLabel(createdBooking.date)}</span> a las <span className="text-slate-900 font-bold">{createdBooking.time} hs</span> fue registrado correctamente.
           </p>
 
-          <div className="bg-zinc-950 border border-zinc-850 rounded-xl p-4 mb-8 text-left text-xs text-zinc-400 space-y-2 max-w-xs mx-auto">
-            <p className="font-bold text-zinc-300 uppercase tracking-wider text-[10px] border-b border-zinc-900 pb-1.5 mb-1.5 flex items-center gap-1.5">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-8 text-left text-xs text-slate-500 space-y-2 max-w-xs mx-auto">
+            <p className="font-extrabold text-slate-700 uppercase tracking-wider text-[10px] border-b border-slate-200 pb-1.5 mb-1.5 flex items-center gap-1.5">
               <span>⚠️ IMPORTANTE: CONFIRMAR POR WHATSAPP</span>
             </p>
-            <p className="leading-relaxed">
+            <p className="leading-relaxed font-medium">
               Para asegurar tu lugar en la agenda física de Santiago, hacé clic en el botón de abajo para enviar la confirmación a su WhatsApp.
             </p>
           </div>
 
+          {/* Botón WhatsApp oficial Verde */}
           <a
             href={getWhatsAppLink()}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full inline-flex py-4 bg-emerald-500 hover:bg-emerald-600 text-[#0F0F11] font-bold rounded-xl shadow-lg shadow-emerald-550/20 items-center justify-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+            className="w-full inline-flex py-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-black rounded-xl shadow-md shadow-green-500/20 items-center justify-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
           >
-            <Phone className="w-5 h-5 fill-current" />
+            <MessageCircle className="w-5 h-5 fill-white text-[#25D366]" />
             <span>Confirmar en WhatsApp 📱</span>
           </a>
           
@@ -469,9 +464,9 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
               setFullname('');
               setPhone('');
               setSelectedTime('');
-              fetchScheduleData(); // Recargar datos frescos
+              fetchScheduleData();
             }}
-            className="mt-4 text-xs text-zinc-550 hover:text-white transition-colors cursor-pointer"
+            className="mt-4 text-xs text-slate-500 hover:text-slate-900 transition-colors font-bold cursor-pointer"
           >
             Reservar otro turno
           </button>

@@ -1,19 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0F0F11;
-  --foreground: #F4F4F5;
-  --card-bg: #1A1A1E;
-  --gold: #D4AF37;
-  --gold-hover: #B5942D;
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card-bg: #FFFFFF;
+  --blue-sl: #12294b;
+  --blue-sl-hover: #0a182f;
+  --rojo-sl: #e5002b;
+  --rojo-sl-hover: #b80022;
 }
 
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card-bg: var(--card-bg);
-  --color-gold: var(--gold);
-  --color-gold-hover: var(--gold-hover);
+  --color-blue-sl: var(--blue-sl);
+  --color-blue-sl-hover: var(--blue-sl-hover);
+  --color-rojo-sl: var(--rojo-sl);
+  --color-rojo-sl-hover: var(--rojo-sl-hover);
 }
 
 body {
@@ -24,34 +28,34 @@ body {
   overflow-x: hidden;
 }
 
-/* Scrollbar personalizado de estilo premium */
+/* Scrollbar personalizado Light Mode */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0F0F11;
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272A;
+  background: #CBD5E1; /* slate-300 */
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gold);
+  background: var(--blue-sl);
 }
 
 /* Animaciones sutiles */
-@keyframes pulse-gold {
+@keyframes pulse-rojo {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
   }
   50% {
-    opacity: 0.8;
-    transform: scale(1.03);
+    opacity: 0.85;
+    transform: scale(1.02);
   }
 }
 
-.animate-pulse-gold {
-  animation: pulse-gold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-pulse-rojo {
+  animation: pulse-rojo 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

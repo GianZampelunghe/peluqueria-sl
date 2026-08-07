@@ -6,7 +6,7 @@ import AdminDashboard from '@/components/AdminDashboard';
 import LoyaltyCRM from '@/components/LoyaltyCRM';
 import { 
   Calendar, Clock, Plus, Trash2, Settings, Lock, LogOut, Save, RefreshCw, ChevronRight,
-  Award, Phone
+  Award, Phone, Image as ImageIcon, Sparkles
 } from 'lucide-react';
 
 interface Client {
@@ -35,6 +35,14 @@ interface DailySlot {
   is_available: boolean;
 }
 
+interface GalleryItem {
+  id: string;
+  title: string;
+  category: string;
+  image_url: string;
+  created_at: string;
+}
+
 export default function AdminPanel() {
   // Autenticación por PIN
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,12 +58,13 @@ export default function AdminPanel() {
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
   // Navegación de pestañas
-  const [activeTab, setActiveTab] = useState<'agenda' | 'horarios' | 'crm' | 'ajustes'>('agenda');
+  const [activeTab, setActiveTab] = useState<'agenda' | 'horarios' | 'crm' | 'galeria' | 'ajustes'>('agenda');
 
   // Datos de la base de datos
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [dailySlots, setDailySlots] = useState<DailySlot[]>([]);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   
   // Fechas activas de administración
   const [adminDate, setAdminDate] = useState(() => {
@@ -74,10 +83,17 @@ export default function AdminPanel() {
   const [genEnd, setGenEnd] = useState('20:00');
   const [genInterval, setGenInterval] = useState(60);
 
+  // Nuevo trabajo de Galería
+  const [galleryTitle, setGalleryTitle] = useState('');
+  const [galleryCategory, setGalleryCategory] = useState('');
+  const [galleryImageUrl, setGalleryImageUrl] = useState('');
+  const [savingGalleryItem, setSavingGalleryItem] = useState(false);
+
   // Carga general de estados
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadingCRM, setLoadingCRM] = useState(false);
+  const [loadingGallery, setLoadingGallery] = useState(false);
   
   // Validar sesión inicial por PIN
   useEffect(() => {
@@ -118,6 +134,8 @@ export default function AdminPanel() {
       fetchDailySlots();
     } else if (activeTab === 'crm') {
       fetchClients();
+    } else if (activeTab === 'galeria') {
+      fetchGalleryItems();
     }
   }, [isAuthenticated, activeTab, adminDate]);
 
@@ -172,6 +190,22 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchGalleryItems = async () => {
+    try {
+      setLoadingGallery(true);
+      const { data, error } = await supabase
+        .from('gallery')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setGalleryItems(data || []);
+    } catch (err) {
+      console.error('Error al traer trabajos de galería:', err);
+    } finally {
+      setLoadingGallery(false);
+    }
+  };
+
   // Manejadores de Autenticación
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,7 +252,6 @@ export default function AdminPanel() {
     e.preventDefault();
     if (!newCustomTime.trim()) return;
 
-    // Validar formato simple HH:MM
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(newCustomTime)) {
       alert('Formato incorrecto. Debe ser HH:MM (Ej: 10:30 o 14:15)');
@@ -250,7 +283,6 @@ export default function AdminPanel() {
   };
 
   const handleDeleteSlot = async (slotId: string, timeSlot: string) => {
-    // Comprobar si hay una reserva activa en ese slot
     const hasBooking = bookings.some(b => b.booking_time === timeSlot && b.status !== 'cancelled');
     if (hasBooking) {
       const confirmDelete = confirm('¡Atención! Hay un turno reservado activo en este horario. ¿Seguro que querés eliminarlo? Esto podría descolocar al cliente.');
@@ -347,6 +379,63 @@ export default function AdminPanel() {
     }
   };
 
+  // Gestión de Galería Dinámica (Agregar)
+  const handleAddGalleryItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!galleryTitle.trim() || !galleryImageUrl.trim()) {
+      alert('Por favor completa el título y la URL de la imagen.');
+      return;
+    }
+
+    try {
+      setSavingGalleryItem(true);
+      const { data, error } = await supabase
+        .from('gallery')
+        .insert({
+          title: galleryTitle.trim(),
+          category: galleryCategory.trim() || 'Barbería',
+          image_url: galleryImageUrl.trim()
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      // Actualizar listado local
+      setGalleryItems(prev => [data, ...prev]);
+      
+      // Limpiar inputs
+      setGalleryTitle('');
+      setGalleryCategory('');
+      setGalleryImageUrl('');
+      alert('Trabajo agregado con éxito a la galería.');
+    } catch (err) {
+      console.error('Error al agregar item de galería:', err);
+      alert('Ocurrió un error al guardar el trabajo.');
+    } finally {
+      setSavingGalleryItem(false);
+    }
+  };
+
+  // Gestión de Galería Dinámica (Eliminar)
+  const handleDeleteGalleryItem = async (itemId: string) => {
+    const confirmDelete = confirm('¿Seguro que querés quitar este trabajo de la galería?');
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('gallery')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+      setGalleryItems(prev => prev.filter(item => item.id !== itemId));
+    } catch (err) {
+      console.error('Error al eliminar item de galería:', err);
+      alert('Ocurrió un error al eliminar el trabajo.');
+    }
+  };
+
   // Guardar Ajustes Generales
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -392,16 +481,16 @@ export default function AdminPanel() {
   // VISTA 1: LOGIN POR PIN SI NO ESTÁ AUTENTICADO
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F0F11] flex items-center justify-center px-4">
-        <div className="w-full max-w-sm bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-6 shadow-xl">
           <div className="text-center mb-6">
             <span className="text-4xl block mb-2">🔒</span>
-            <h2 className="text-2xl font-black text-white">Panel Peluquería SL</h2>
-            <p className="text-xs text-zinc-550 mt-1">Santiago, ingresá tu PIN de seguridad</p>
+            <h2 className="text-2xl font-black text-blue-sl">Panel Peluquería SL</h2>
+            <p className="text-xs text-slate-500 mt-1">Santiago, ingresá tu PIN de seguridad</p>
           </div>
 
           {loginError && (
-            <div className="mb-4 bg-red-950/40 border border-red-900/50 text-red-200 text-xs p-3 rounded-xl text-center">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-800 text-xs p-3 rounded-xl text-center font-semibold">
               {loginError}
             </div>
           )}
@@ -414,24 +503,34 @@ export default function AdminPanel() {
                 inputMode="numeric"
                 maxLength={8}
                 required
-                placeholder="Introducir PIN"
+                placeholder="PIN (Pista: 1234)"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
-                className="w-full py-4 text-center bg-zinc-950 border border-zinc-800 rounded-xl text-2xl tracking-widest text-white focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold transition-all"
+                className="w-full py-4 text-center bg-slate-50 border border-slate-200 rounded-xl text-2xl tracking-widest text-slate-800 focus:border-blue-sl focus:outline-none transition-all font-bold"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-gold hover:bg-gold-hover text-[#0F0F11] font-bold rounded-xl shadow-lg shadow-gold/10 transition-all flex items-center justify-center gap-1 cursor-pointer text-sm"
+              className="w-full py-3.5 bg-rojo-sl hover:bg-rojo-sl-hover text-white font-bold rounded-xl shadow-md shadow-rojo-sl/10 transition-all flex items-center justify-center gap-1 cursor-pointer text-sm"
             >
               <span>Acceder al Panel</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </form>
 
+          {/* Botón de Pista de PIN visible solicitado para testing */}
+          <div className="mt-4 p-2.5 bg-blue-sl/5 border border-blue-sl/10 rounded-xl text-center">
+            <button
+              onClick={() => setPinInput('1234')}
+              className="text-xs text-blue-sl font-extrabold hover:underline"
+            >
+              🔑 Autocompletar PIN por defecto: 1234
+            </button>
+          </div>
+
           <div className="mt-6 text-center">
-            <a href="/" className="text-xs text-zinc-650 hover:text-zinc-400 transition-colors">
+            <a href="/" className="text-xs text-slate-550 hover:text-blue-sl transition-colors font-bold">
               ← Volver a la Landing Pública
             </a>
           </div>
@@ -440,23 +539,23 @@ export default function AdminPanel() {
     );
   }
 
-  // VISTA 2: PANEL DE ADMINISTRACIÓN PRINCIPAL
+  // VISTA 2: PANEL DE ADMINISTRACIÓN PRINCIPAL LIGHT
   return (
-    <div className="min-h-screen bg-[#0F0F11] flex flex-col">
-      {/* Header Admin */}
-      <header className="bg-zinc-950 border-b border-zinc-900 sticky top-0 z-40">
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
+      {/* Header Admin Light */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">💈</span>
             <div>
-              <h1 className="text-sm font-black text-white">PELUQUERÍA SL</h1>
-              <p className="text-[10px] text-gold font-bold uppercase tracking-wider">Santiago Admin Panel</p>
+              <h1 className="text-sm font-black text-blue-sl">PELUQUERÍA SL</h1>
+              <p className="text-[10px] text-rojo-sl font-extrabold uppercase tracking-wider">Santiago Admin Panel</p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1E] border border-zinc-850 hover:border-red-900/50 hover:text-red-400 text-xs font-semibold text-zinc-400 rounded-lg transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-red-200 hover:text-rojo-sl text-xs font-bold text-slate-600 rounded-lg transition-all cursor-pointer shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Cerrar Sesión</span>
@@ -464,13 +563,13 @@ export default function AdminPanel() {
         </div>
       </header>
 
-      {/* Navegación por pestañas móvil y desktop */}
-      <div className="bg-zinc-950/50 border-b border-zinc-900 sticky top-[57px] z-30 backdrop-blur-md">
+      {/* Navegación por pestañas Light */}
+      <div className="bg-white/80 border-b border-slate-200 sticky top-[57px] z-30 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 flex justify-between sm:justify-start gap-1 overflow-x-auto py-2">
           <button
             onClick={() => setActiveTab('agenda')}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer ${
-              activeTab === 'agenda' ? 'bg-gold text-[#0F0F11]' : 'text-zinc-400 hover:text-white'
+              activeTab === 'agenda' ? 'bg-blue-sl text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
@@ -480,7 +579,7 @@ export default function AdminPanel() {
           <button
             onClick={() => setActiveTab('horarios')}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer ${
-              activeTab === 'horarios' ? 'bg-gold text-[#0F0F11]' : 'text-zinc-400 hover:text-white'
+              activeTab === 'horarios' ? 'bg-blue-sl text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -490,17 +589,27 @@ export default function AdminPanel() {
           <button
             onClick={() => setActiveTab('crm')}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer ${
-              activeTab === 'crm' ? 'bg-gold text-[#0F0F11]' : 'text-zinc-400 hover:text-white'
+              activeTab === 'crm' ? 'bg-blue-sl text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            <Award className="w-3.5 h-3.5 animate-pulse" />
+            <Award className="w-3.5 h-3.5" />
             <span>Fidelización CRM</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('galeria')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer ${
+              activeTab === 'galeria' ? 'bg-blue-sl text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span>Gestor de Galería</span>
           </button>
 
           <button
             onClick={() => setActiveTab('ajustes')}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer ${
-              activeTab === 'ajustes' ? 'bg-gold text-[#0F0F11]' : 'text-zinc-400 hover:text-white'
+              activeTab === 'ajustes' ? 'bg-blue-sl text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <Settings className="w-3.5 h-3.5" />
@@ -514,10 +623,10 @@ export default function AdminPanel() {
         
         {/* FILTRO DE FECHAS GLOBAL PARA AGENDA Y HORARIOS */}
         {(activeTab === 'agenda' || activeTab === 'horarios') && (
-          <div className="mb-6 bg-[#1A1A1E] border border-zinc-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="mb-6 bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
             <div className="space-y-1">
-              <span className="text-zinc-550 text-[10px] uppercase font-black tracking-wider">Fecha Seleccionada</span>
-              <div className="text-sm font-bold text-white">
+              <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Fecha Seleccionada</span>
+              <div className="text-sm font-extrabold text-blue-sl">
                 {formatDateLabel(adminDate)}
               </div>
             </div>
@@ -528,14 +637,14 @@ export default function AdminPanel() {
                 onChange={(e) => {
                   if (e.target.value) setAdminDate(e.target.value);
                 }}
-                className="px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white focus:outline-none focus:border-gold"
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-blue-sl"
               />
               <button
                 onClick={() => {
                   if (activeTab === 'agenda') fetchBookings();
                   else if (activeTab === 'horarios') fetchDailySlots();
                 }}
-                className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-all cursor-pointer"
+                className="p-2 bg-slate-50 border border-slate-200 hover:border-slate-350 rounded-lg text-slate-650 hover:text-blue-sl transition-all cursor-pointer"
                 title="Refrescar datos"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -547,10 +656,10 @@ export default function AdminPanel() {
         {/* PESTAÑA: AGENDA DIARIA */}
         {activeTab === 'agenda' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-black text-white flex items-center gap-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-blue-sl flex items-center gap-2">
                 <span>📅 Turnos Agendados</span>
-                <span className="px-2 py-0.5 bg-zinc-900 border border-zinc-850 rounded-full text-xs text-zinc-400 font-bold">
+                <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded-full text-xs text-slate-600 font-bold">
                   {bookings.length}
                 </span>
               </h2>
@@ -567,16 +676,18 @@ export default function AdminPanel() {
         {/* PESTAÑA: HORARIOS (SLOTS FLEXIBLES) */}
         {activeTab === 'horarios' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
             {/* COLUMNA 1: AGREGAR / GENERAR */}
             <div className="space-y-6">
+              
               {/* Bloque: Agregar uno manual */}
-              <div className="bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-5 shadow-lg">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 border-b border-zinc-850 pb-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
                   ⏰ Agregar Horario Individual
                 </h3>
                 <form onSubmit={handleAddCustomSlot} className="space-y-4">
                   <div>
-                    <label className="block text-[10px] text-zinc-550 font-bold mb-1.5 uppercase">
+                    <label className="block text-[10px] text-slate-500 font-bold mb-1.5 uppercase">
                       Hora del corte (Formato HH:MM)
                     </label>
                     <input
@@ -585,12 +696,12 @@ export default function AdminPanel() {
                       placeholder="Ej: 11:30, 16:45"
                       value={newCustomTime}
                       onChange={(e) => setNewCustomTime(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-700 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none focus:ring-1 focus:ring-blue-sl"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-gold hover:bg-gold-hover text-[#0F0F11] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-gold/5"
+                    className="w-full py-2.5 bg-rojo-sl hover:bg-rojo-sl-hover text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rojo-sl/5"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Agregar horario</span>
@@ -599,38 +710,38 @@ export default function AdminPanel() {
               </div>
 
               {/* Bloque: Generador automático */}
-              <div className="bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-5 shadow-lg">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 border-b border-zinc-850 pb-2">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
                   ⚡ Generador Rápido de Horarios
                 </h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] text-zinc-550 font-bold mb-1 uppercase">Apertura</label>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-1 uppercase">Apertura</label>
                       <input
                         type="time"
                         value={genStart}
                         onChange={(e) => setGenStart(e.target.value)}
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-850"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-zinc-550 font-bold mb-1 uppercase">Cierre</label>
+                      <label className="block text-[10px] text-slate-500 font-bold mb-1 uppercase">Cierre</label>
                       <input
                         type="time"
                         value={genEnd}
                         onChange={(e) => setGenEnd(e.target.value)}
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-850"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-zinc-555 font-bold mb-1 uppercase">Intervalo (Minutos)</label>
+                    <label className="block text-[10px] text-slate-500 font-bold mb-1 uppercase">Intervalo (Minutos)</label>
                     <select
                       value={genInterval}
                       onChange={(e) => setGenInterval(Number(e.target.value))}
-                      className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white focus:outline-none focus:border-gold"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:border-blue-sl"
                     >
                       <option value={30}>Cada 30 min (Ej: 10:00, 10:30)</option>
                       <option value={40}>Cada 40 min (Ej: 10:00, 10:40)</option>
@@ -642,7 +753,7 @@ export default function AdminPanel() {
 
                   <button
                     onClick={handleGenerateSlots}
-                    className="w-full py-3 bg-zinc-900 border border-zinc-800 hover:border-gold/30 text-zinc-350 hover:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    className="w-full py-3 bg-slate-100 border border-slate-200 hover:border-blue-sl/30 text-slate-700 hover:text-blue-sl font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                   >
                     <span>Generar Franja del Día</span>
                   </button>
@@ -651,24 +762,24 @@ export default function AdminPanel() {
             </div>
 
             {/* COLUMNA 2-3: LISTADO DE SLOTS */}
-            <div className="lg:col-span-2 bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-5 shadow-lg">
-              <div className="flex items-center justify-between mb-4 border-b border-zinc-850 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider">
                   📋 Lista de horarios del Día
                 </h3>
-                <span className="text-[10px] bg-zinc-900 text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-250 px-2 py-0.5 rounded-full">
                   {dailySlots.length} horarios creados
                 </span>
               </div>
 
               {loadingSlots ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin h-6 w-6 border-b-2 border-gold mx-auto"></div>
+                  <div className="animate-spin h-6 w-6 border-b-2 border-blue-sl mx-auto"></div>
                 </div>
               ) : dailySlots.length === 0 ? (
-                <div className="text-center py-16 text-zinc-550">
+                <div className="text-center py-16 text-slate-500">
                   <span className="text-4xl block mb-2">🗓️</span>
-                  <p className="text-sm font-bold">No hay horarios creados para hoy</p>
+                  <p className="text-sm font-bold text-slate-700">No hay horarios creados para hoy</p>
                   <p className="text-xs mt-1">Santiago, agrega horarios a mano o usa el generador rápido.</p>
                 </div>
               ) : (
@@ -683,17 +794,17 @@ export default function AdminPanel() {
                         key={slot.id}
                         className={`p-3 rounded-xl border flex items-center justify-between gap-1.5 transition-all ${
                           isBooked 
-                            ? 'bg-yellow-950/10 border-yellow-900/30' 
+                            ? 'bg-amber-50 border-amber-250' 
                             : slot.is_available
-                            ? 'bg-zinc-950 border-zinc-850 hover:border-zinc-800'
-                            : 'bg-red-950/10 border-red-900/30 opacity-70'
+                            ? 'bg-slate-50 border-slate-200 hover:border-slate-350'
+                            : 'bg-red-50 border-red-250 opacity-80'
                         }`}
                       >
                         <div className="text-left">
-                          <span className={`text-sm font-black block ${isBooked ? 'text-yellow-500' : 'text-white'}`}>
+                          <span className={`text-sm font-black block ${isBooked ? 'text-amber-600' : 'text-slate-800'}`}>
                             {slot.time_slot} hs
                           </span>
-                          <span className="text-[9px] text-zinc-550 uppercase block font-bold">
+                          <span className="text-[9px] text-slate-500 uppercase block font-bold">
                             {isBooked ? 'Reservado' : slot.is_available ? 'Habilitado' : 'Bloqueado'}
                           </span>
                         </div>
@@ -704,8 +815,8 @@ export default function AdminPanel() {
                               onClick={() => handleToggleSlotAvailability(slot.id, slot.is_available)}
                               className={`p-1.5 rounded-lg border text-xs cursor-pointer ${
                                 slot.is_available
-                                  ? 'bg-[#1A1A1E] border-zinc-800 text-zinc-400 hover:text-red-400'
-                                  : 'bg-red-950/30 border-red-900 text-red-400 hover:text-emerald-400'
+                                  ? 'bg-white border-slate-200 text-slate-500 hover:text-red-500'
+                                  : 'bg-red-100 border-red-200 text-red-500 hover:text-emerald-600'
                               }`}
                               title={slot.is_available ? 'Bloquear horario' : 'Habilitar horario'}
                             >
@@ -717,7 +828,7 @@ export default function AdminPanel() {
 
                           <button
                             onClick={() => handleDeleteSlot(slot.id, slot.time_slot)}
-                            className="p-1.5 bg-[#1A1A1E] hover:bg-zinc-900 border border-zinc-850 text-zinc-500 hover:text-red-500 rounded-lg cursor-pointer"
+                            className="p-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-450 hover:text-red-500 rounded-lg cursor-pointer"
                             title="Eliminar horario"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -745,17 +856,144 @@ export default function AdminPanel() {
           />
         )}
 
+        {/* ======================================================== */}
+        {/* PESTAÑA: GESTOR DE GALERÍA (NUEVO) */}
+        {/* ======================================================== */}
+        {activeTab === 'galeria' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Formulario de carga de nuevo trabajo */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm h-fit">
+              <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider mb-4 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                <Sparkles className="w-4.5 h-4.5 text-rojo-sl" />
+                <span>Agregar Nuevo Trabajo</span>
+              </h3>
+              
+              <form onSubmit={handleAddGalleryItem} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] text-slate-550 font-bold mb-1.5 uppercase">
+                    Título del Trabajo
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Fade Clásico, Mullet Urbano"
+                    value={galleryTitle}
+                    onChange={(e) => setGalleryTitle(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-555 font-bold mb-1.5 uppercase">
+                    Categoría / Subtítulo
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Fade, Corte & Barba, Diseños"
+                    value={galleryCategory}
+                    onChange={(e) => setGalleryCategory(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-555 font-bold mb-1.5 uppercase">
+                    URL de la Imagen (Link Directo)
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="Ej: https://unsplash.com/... o link de foto"
+                    value={galleryImageUrl}
+                    onChange={(e) => setGalleryImageUrl(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none"
+                  />
+                  <p className="text-[9px] text-slate-500 mt-1">
+                    Pegá un enlace directo a la imagen. Podes usar servicios gratuitos de hosting de imágenes.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingGalleryItem}
+                  className="w-full py-2.5 bg-rojo-sl hover:bg-rojo-sl-hover disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rojo-sl/5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{savingGalleryItem ? 'Guardando...' : 'Agregar a la Galería'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Listado y eliminación de trabajos */}
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="w-4.5 h-4.5 text-blue-sl" />
+                  <span>Galería de Trabajos ({galleryItems.length})</span>
+                </h3>
+              </div>
+
+              {loadingGallery ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin h-6 w-6 border-b-2 border-blue-sl mx-auto"></div>
+                </div>
+              ) : galleryItems.length === 0 ? (
+                <div className="text-center py-16 text-slate-500">
+                  <span className="text-4xl block mb-2">📸</span>
+                  <p className="text-sm font-bold text-slate-700">No hay fotos en la galería</p>
+                  <p className="text-xs mt-1">Usa el panel de la izquierda para subir el primer trabajo.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {galleryItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-sm relative group flex flex-col justify-between"
+                    >
+                      <div className="aspect-square w-full bg-slate-100 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.image_url}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as any).src = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80';
+                          }}
+                        />
+                        {/* Botón de eliminación flotante */}
+                        <button
+                          onClick={() => handleDeleteGalleryItem(item.id)}
+                          className="absolute top-2 right-2 p-1.5 bg-white hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-all"
+                          title="Eliminar de galería"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      
+                      <div className="p-3 bg-white border-t border-slate-100">
+                        <p className="font-extrabold text-xs text-blue-sl truncate">{item.title}</p>
+                        <p className="text-[9px] text-slate-450 font-bold uppercase">{item.category}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* PESTAÑA: AJUSTES DE SISTEMA */}
         {activeTab === 'ajustes' && (
           <div className="max-w-xl mx-auto">
-            <div className="bg-[#1A1A1E] border border-zinc-800 rounded-2xl p-6 shadow-lg">
-              <h2 className="text-base font-black text-white uppercase tracking-wider mb-6 border-b border-zinc-850 pb-3 flex items-center gap-2">
-                <Settings className="w-5 h-5 text-gold" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-base font-black text-blue-sl uppercase tracking-wider mb-6 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-blue-sl" />
                 <span>Ajustes del Sistema</span>
               </h2>
 
               {settingsSuccess && (
-                <div className="mb-6 bg-emerald-950/40 border border-emerald-900/60 text-emerald-250 text-xs p-3.5 rounded-xl text-center">
+                <div className="mb-6 bg-emerald-50 border border-emerald-250 text-emerald-800 text-xs p-3.5 rounded-xl text-center font-bold shadow-sm animate-fade-in">
                   ✓ Ajustes guardados correctamente en Supabase.
                 </div>
               )}
@@ -763,49 +1001,49 @@ export default function AdminPanel() {
               <form onSubmit={handleSaveSettings} className="space-y-5">
                 {/* 1. PIN */}
                 <div>
-                  <label className="block text-xs text-zinc-450 font-bold mb-1.5 uppercase">
+                  <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
                     PIN de Acceso Administrador
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-550" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
                       required
                       placeholder="Ej: 1234"
                       value={correctPin}
                       onChange={(e) => setCorrectPin(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-gold"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
                     />
                   </div>
-                  <p className="text-[10px] text-zinc-550 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
                     PIN para bloquear/desbloquear esta sección.
                   </p>
                 </div>
 
                 {/* 2. Whatsapp de Destino */}
                 <div>
-                  <label className="block text-xs text-zinc-450 font-bold mb-1.5 uppercase">
+                  <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
                     Número de WhatsApp Comercial
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-550" />
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="tel"
                       required
                       placeholder="Ej: 542216789012"
                       value={whatsappNumber}
                       onChange={(e) => setWhatsappNumber(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-gold"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
                     />
                   </div>
-                  <p className="text-[10px] text-zinc-550 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
                     Número de celular con código de área del país (sin símbolos ni espacios) donde llegarán los turnos.
                   </p>
                 </div>
 
                 {/* 3. Cortes requeridos */}
                 <div>
-                  <label className="block text-xs text-zinc-450 font-bold mb-1.5 uppercase">
+                  <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
                     Cortes requeridos para el premio
                   </label>
                   <input
@@ -815,16 +1053,16 @@ export default function AdminPanel() {
                     required
                     value={cutsRequired}
                     onChange={(e) => setCutsRequired(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-gold"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
                   />
-                  <p className="text-[10px] text-zinc-550 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
                     Cantidad de visitas que el cliente debe completar antes de ganar el beneficio.
                   </p>
                 </div>
 
                 {/* 4. Descripcion del premio */}
                 <div>
-                  <label className="block text-xs text-zinc-450 font-bold mb-1.5 uppercase">
+                  <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
                     Descripción del Premio
                   </label>
                   <input
@@ -833,9 +1071,9 @@ export default function AdminPanel() {
                     placeholder="Ej: ¡7mo corte gratis!"
                     value={rewardText}
                     onChange={(e) => setRewardText(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-white focus:outline-none focus:border-gold"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
                   />
-                  <p className="text-[10px] text-zinc-550 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
                     El texto de premio que se le mostrará a los clientes VIP.
                   </p>
                 </div>
@@ -844,7 +1082,7 @@ export default function AdminPanel() {
                 <button
                   type="submit"
                   disabled={savingSettings}
-                  className="w-full mt-4 py-3.5 bg-gold hover:bg-gold-hover disabled:bg-zinc-855 disabled:text-zinc-650 text-[#0F0F11] font-bold rounded-xl shadow-lg flex items-center justify-center gap-1.5 cursor-pointer text-sm"
+                  className="w-full mt-4 py-3.5 bg-rojo-sl hover:bg-rojo-sl-hover disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 cursor-pointer text-sm"
                 >
                   <Save className="w-4 h-4" />
                   <span>{savingSettings ? 'Guardando...' : 'Guardar Ajustes'}</span>
