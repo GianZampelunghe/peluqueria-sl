@@ -125,3 +125,26 @@ create or replace trigger trg_booking_status_change
 before insert or update on bookings
 for each row
 execute function handle_booking_status_change();
+
+-- 7. CONFIGURACIÓN DE STORAGE: BUCKET Y POLÍTICAS RLS para 'gallery-images'
+-- Crear el bucket de storage si no existe
+insert into storage.buckets (id, name, public) 
+values ('gallery-images', 'gallery-images', true)
+on conflict (id) do nothing;
+
+-- Crear políticas de acceso para el bucket 'gallery-images'
+
+-- Permitir lectura pública a cualquiera
+create policy "Lectura pública de galería" 
+on storage.objects for select 
+using (bucket_id = 'gallery-images');
+
+-- Permitir inserción/subida a cualquiera
+create policy "Subida de imágenes de galería" 
+on storage.objects for insert 
+with check (bucket_id = 'gallery-images');
+
+-- Permitir eliminación
+create policy "Eliminación de imágenes de galería" 
+on storage.objects for delete 
+using (bucket_id = 'gallery-images');

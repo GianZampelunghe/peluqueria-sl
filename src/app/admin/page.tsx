@@ -83,10 +83,11 @@ export default function AdminPanel() {
   const [genEnd, setGenEnd] = useState('20:00');
   const [genInterval, setGenInterval] = useState(60);
 
-  // Nuevo trabajo de Galería
+  // Nuevo trabajo de Galería (Supabase Storage)
   const [galleryTitle, setGalleryTitle] = useState('');
   const [galleryCategory, setGalleryCategory] = useState('');
-  const [galleryImageUrl, setGalleryImageUrl] = useState('');
+  const [galleryFile, setGalleryFile] = useState<File | null>(null);
+  const [galleryFilePreview, setGalleryFilePreview] = useState<string>('');
   const [savingGalleryItem, setSavingGalleryItem] = useState(false);
 
   // Carga general de estados
@@ -379,50 +380,92 @@ export default function AdminPanel() {
     }
   };
 
-  // Gestión de Galería Dinámica (Agregar)
+  // Gestión de Galería Dinámica (Agregar con Supabase Storage)
   const handleAddGalleryItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!galleryTitle.trim() || !galleryImageUrl.trim()) {
-      alert('Por favor completa el título y la URL de la imagen.');
+    if (!galleryTitle.trim() || !galleryFile) {
+      alert('Por favor completa el título y selecciona una imagen.');
       return;
     }
 
     try {
       setSavingGalleryItem(true);
+      
+      // 1. Subir archivo a Supabase Storage bucket 'gallery-images'
+      const fileExt = galleryFile.name.split('.').pop();
+      const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+      const filePath = uniqueFileName;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('gallery-images')
+        .upload(filePath, galleryFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Obtener URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('gallery-images')
+        .getPublicUrl(filePath);
+
+      const publicUrl = publicUrlData.publicUrl;
+
+      // 3. Insertar registro en la tabla de base de datos
       const { data, error } = await supabase
         .from('gallery')
         .insert({
           title: galleryTitle.trim(),
           category: galleryCategory.trim() || 'Barbería',
-          image_url: galleryImageUrl.trim()
+          image_url: publicUrl
         })
         .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Si falla la inserción en DB, intentar borrar el archivo de storage para evitar huérfanos
+        await supabase.storage.from('gallery-images').remove([filePath]);
+        throw error;
+      }
 
       // Actualizar listado local
       setGalleryItems(prev => [data, ...prev]);
       
-      // Limpiar inputs
+      // Limpiar inputs y preview
       setGalleryTitle('');
       setGalleryCategory('');
-      setGalleryImageUrl('');
+      setGalleryFile(null);
+      setGalleryFilePreview('');
       alert('Trabajo agregado con éxito a la galería.');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al agregar item de galería:', err);
-      alert('Ocurrió un error al guardar el trabajo.');
+      alert('Ocurrió un error al guardar el trabajo: ' + (err.message || err));
     } finally {
       setSavingGalleryItem(false);
     }
   };
 
-  // Gestión de Galería Dinámica (Eliminar)
-  const handleDeleteGalleryItem = async (itemId: string) => {
+  // Gestión de Galería Dinámica (Eliminar DB y Storage)
+  const handleDeleteGalleryItem = async (itemId: string, imageUrl: string) => {
     const confirmDelete = confirm('¿Seguro que querés quitar este trabajo de la galería?');
     if (!confirmDelete) return;
 
     try {
+      // 1. Extraer nombre de archivo desde la URL de la imagen
+      const fileName = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+
+      if (fileName && !imageUrl.includes('unsplash.com')) { // Evitar borrar placeholders de unsplash
+        const { error: storageError } = await supabase.storage
+          .from('gallery-images')
+          .remove([fileName]);
+
+        if (storageError) {
+          console.error('Error al remover archivo de Storage:', storageError);
+        }
+      }
+
+      // 2. Eliminar registro de la base de datos
       const { error } = await supabase
         .from('gallery')
         .delete()
@@ -430,9 +473,10 @@ export default function AdminPanel() {
 
       if (error) throw error;
       setGalleryItems(prev => prev.filter(item => item.id !== itemId));
-    } catch (err) {
+      alert('Trabajo eliminado correctamente.');
+    } catch (err: any) {
       console.error('Error al eliminar item de galería:', err);
-      alert('Ocurrió un error al eliminar el trabajo.');
+      alert('Ocurrió un error al eliminar el trabajo: ' + (err.message || err));
     }
   };
 
@@ -899,19 +943,53 @@ export default function AdminPanel() {
 
                 <div>
                   <label className="block text-[10px] text-slate-555 font-bold mb-1.5 uppercase">
-                    URL de la Imagen (Link Directo)
+                    Imagen del Trabajo (Fototeca / Archivos)
                   </label>
-                  <input
-                    type="url"
-                    required
-                    placeholder="Ej: https://unsplash.com/... o link de foto"
-                    value={galleryImageUrl}
-                    onChange={(e) => setGalleryImageUrl(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none"
-                  />
-                  <p className="text-[9px] text-slate-500 mt-1">
-                    Pegá un enlace directo a la imagen. Podes usar servicios gratuitos de hosting de imágenes.
-                  </p>
+                  
+                  {galleryFilePreview && (
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-100 border border-slate-200 mb-3 flex items-center justify-center shadow-inner">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={galleryFilePreview}
+                        alt="Previsualización"
+                        className="w-full h-full object-cover animate-fade-in"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGalleryFile(null);
+                          setGalleryFilePreview('');
+                        }}
+                        className="absolute top-2 right-2 bg-rojo-sl hover:bg-rojo-sl-hover text-white rounded-full p-1 shadow-md text-xs cursor-pointer font-bold w-6 h-6 flex items-center justify-center"
+                        title="Quitar imagen"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  <label className="w-full py-3.5 px-4 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-sl/50 hover:bg-blue-sl/5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 text-xs font-bold text-slate-600 hover:text-blue-sl shadow-sm">
+                    <ImageIcon className="w-4 h-4 text-slate-500" />
+                    <span>📷 Seleccionar foto de la fototeca</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setGalleryFile(file);
+                          setGalleryFilePreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                  
+                  {galleryFile && (
+                    <p className="text-[10px] text-slate-500 mt-1.5 truncate">
+                      Archivo: <span className="font-semibold text-slate-700">{galleryFile.name}</span>
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -963,7 +1041,7 @@ export default function AdminPanel() {
                         />
                         {/* Botón de eliminación flotante */}
                         <button
-                          onClick={() => handleDeleteGalleryItem(item.id)}
+                          onClick={() => handleDeleteGalleryItem(item.id, item.image_url)}
                           className="absolute top-2 right-2 p-1.5 bg-white hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-lg border border-slate-200 shadow-sm cursor-pointer transition-all"
                           title="Eliminar de galería"
                         >
