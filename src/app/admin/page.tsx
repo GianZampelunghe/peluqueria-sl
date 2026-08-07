@@ -52,7 +52,7 @@ export default function AdminPanel() {
   const [loginError, setLoginError] = useState('');
 
   // Configuración de la barbería
-  const [whatsappNumber, setWhatsappNumber] = useState('542216789012');
+  const [whatsappNumber, setWhatsappNumber] = useState('5492213163050');
   const [cutsRequired, setCutsRequired] = useState(6);
   const [rewardText, setRewardText] = useState('¡7mo corte 100% GRATIS!');
   const [savingSettings, setSavingSettings] = useState(false);
@@ -1170,7 +1170,7 @@ export default function AdminPanel() {
                     <input
                       type="tel"
                       required
-                      placeholder="Ej: 542216789012"
+                      placeholder="Ej: 5492213163050"
                       value={whatsappNumber}
                       onChange={(e) => setWhatsappNumber(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"

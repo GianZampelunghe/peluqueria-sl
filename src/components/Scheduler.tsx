@@ -12,7 +12,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [appConfig, setAppConfig] = useState({
-    whatsapp_number: '542216789012',
+    whatsapp_number: '5492213163050',
     cuts_required: 6,
     reward_text: '¡7mo corte 100% GRATIS!',
   });
@@ -34,6 +34,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
     fullname: string;
     date: string;
     time: string;
+    phone: string;
   } | null>(null);
 
   // Formatear fechas para mostrar en la interfaz (Ej: "Lun 10 Ago")
@@ -214,6 +215,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
         fullname: fullname.trim(),
         date: selectedDate,
         time: selectedTime,
+        phone: cleanPhone,
       });
 
       setStep(4);
@@ -233,8 +235,8 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
   const getWhatsAppLink = () => {
     if (!createdBooking) return '';
     const dateLabel = formatDateLabel(createdBooking.date);
-    const msg = `¡Hola Santiago! 👋 Acabo de reservar un turno en la Web:\n\n✂️ *Nombre:* ${createdBooking.fullname}\n📅 *Fecha:* ${dateLabel}\n⏰ *Hora:* ${createdBooking.time} hs\n\n¿Me confirmás el turno? ¡Muchas gracias! 🔥💈`;
-    return `https://wa.me/${appConfig.whatsapp_number}?text=${encodeURIComponent(msg)}`;
+    const msg = `¡Hola Santiago! 👋 Quiero confirmar mi turno en Peluquería SL:\n\n📅 Fecha: ${dateLabel}\n⏰ Hora: ${createdBooking.time} hs\n👤 Nombre: ${createdBooking.fullname}\n📱 WhatsApp: ${createdBooking.phone}\n\n¡Nos vemos ahí! 💈`;
+    return `https://wa.me/${appConfig.whatsapp_number || '5492213163050'}?text=${encodeURIComponent(msg)}`;
   };
 
   if (loading) {

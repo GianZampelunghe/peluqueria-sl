@@ -11,7 +11,7 @@ create table if not exists settings (
 -- Insertar configuración inicial por defecto
 insert into settings (key, value) values (
   'app_config',
-  '{"pin": "1234", "whatsapp_number": "542216789012", "cuts_required": 6, "reward_text": "¡7mo corte 100% GRATIS!"}'::jsonb
+  '{"pin": "1234", "whatsapp_number": "5492213163050", "cuts_required": 6, "reward_text": "¡7mo corte 100% GRATIS!"}'::jsonb
 ) on conflict (key) do nothing;
 
 

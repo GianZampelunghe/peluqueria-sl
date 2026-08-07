@@ -12,7 +12,7 @@ export default function Home() {
   const schedulerRef = useRef<HTMLDivElement>(null);
   const [cutsRequired, setCutsRequired] = useState(6);
   const [rewardText, setRewardText] = useState('¡7mo corte 100% GRATIS!');
-  const [whatsappNumber, setWhatsappNumber] = useState('542216789012');
+  const [whatsappNumber, setWhatsappNumber] = useState('5492213163050');
 
   useEffect(() => {
     // Cargar dinámicamente la configuración de fidelización para mostrarla en el banner y pasarla al Hero
