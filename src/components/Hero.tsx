@@ -20,15 +20,15 @@ export default function Hero({ onBookClick, whatsappNumber }: HeroProps) {
       {/* Efecto de fondo sutil con azul San Lorenzo */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-sl/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
       
-      {/* Insignia superior del Ciclón */}
-      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-205 shadow-sm rounded-full text-xs md:text-sm font-extrabold text-blue-sl mb-6">
-        <span className="flex h-2.5 w-2.5 rounded-full bg-rojo-sl animate-pulse" />
-        <span>💈 La Barbería del Ciclón en Villa Elvira 🦅</span>
+      {/* Insignia superior de Experiencia */}
+      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 shadow-sm rounded-full text-xs md:text-sm font-extrabold text-slate-800 mb-6">
+        <span className="flex h-2.5 w-2.5 rounded-full bg-[#114faa] animate-pulse" />
+        <span>✂️ 9 años de experiencia • Barbero desde 2017</span>
       </div>
       
       {/* Título Principal (San Lorenzo Colors - S Azul, L Roja) */}
       <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-4">
-        <span className="text-slate-800">PELUQUERÍA </span>
+        <span className="text-black font-extrabold">PELUQUERÍA </span>
         <span className="text-blue-sl">S</span>
         <span className="text-rojo-sl">L</span>
       </h1>
@@ -46,7 +46,7 @@ export default function Hero({ onBookClick, whatsappNumber }: HeroProps) {
         </div>
         <div className="text-left">
           <p className="text-sm font-extrabold text-blue-sl">Santiago Lencina</p>
-          <p className="text-xs text-slate-500 font-bold">Barbero Staff VIP</p>
+          <p className="text-xs text-slate-500 font-bold">Barbero</p>
         </div>
       </div>
       
