@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Calendar, Clock, User, Phone, CheckCircle, AlertTriangle, ArrowRight, CornerDownRight, MessageCircle } from 'lucide-react';
+import { Calendar, Clock, User, Phone, CheckCircle, AlertTriangle, ArrowRight, MessageCircle } from 'lucide-react';
 
 interface SchedulerProps {
   onSuccess: () => void;
@@ -402,10 +402,6 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none transition-all font-medium"
                 />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1.5 leading-normal flex items-start gap-1">
-                <CornerDownRight className="w-3 h-3 text-slate-455 shrink-0 mt-0.5" />
-                <span>Lo usamos para verificar tus cortes y avisarte del 7mo gratis.</span>
-              </p>
             </div>
 
             <button
