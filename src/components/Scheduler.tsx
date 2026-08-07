@@ -306,7 +306,7 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
                       </span>
                     </div>
                     <span className="text-[10px] bg-white text-slate-500 group-hover:text-rojo-sl px-2 py-1 rounded-md border border-slate-200 group-hover:border-rojo-sl/20 transition-all font-bold">
-                      {availableCount} {availableCount === 1 ? 'libre' : 'libres'}
+                      {availableCount} {availableCount === 1 ? 'disponible' : 'disponibles'}
                     </span>
                   </button>
                 );

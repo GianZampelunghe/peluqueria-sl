@@ -66,34 +66,6 @@ export default function Home() {
         {/* Presentación Principal (Hero) */}
         <Hero onBookClick={scrollToScheduler} whatsappNumber={whatsappNumber} />
 
-        {/* Sección Banner Informativo de Fidelización Light */}
-        <section className="py-10 px-4 max-w-4xl mx-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-sm">
-            {/* Elemento de diseño de fondo */}
-            <div className="absolute right-0 bottom-0 translate-y-6 translate-x-6 w-32 h-32 bg-blue-sl/5 rounded-full blur-2xl pointer-events-none" />
-            
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-6 justify-between relative z-10">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-1.5 text-xs text-rojo-sl font-bold bg-rojo-sl/5 px-2.5 py-1 rounded-full border border-rojo-sl/10">
-                  <Award className="w-3.5 h-3.5" /> Club VIP Peluquería SL
-                </div>
-                <h3 className="text-xl md:text-2xl font-black text-blue-sl leading-tight">
-                  Tarjeta de Fidelización Virtual
-                </h3>
-                <p className="text-sm text-slate-550 max-w-xl leading-relaxed font-medium">
-                  Registrate con tu WhatsApp al reservar. Con cada corte completado sumás una visita en el sistema de Santiago. ¡Al llegar a los <span className="text-blue-sl font-extrabold">{cutsRequired} cortes</span>, el siguiente es un regalo: <span className="text-rojo-sl font-bold">{rewardText}</span>!
-                </p>
-              </div>
-              <div className="flex items-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-xl shrink-0 w-full md:w-auto justify-center shadow-inner">
-                <div className="text-center">
-                  <p className="text-2xl font-black text-rojo-sl">{cutsRequired} + 1</p>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-extrabold">Esquema de Regalo</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Módulo de Reserva (Scheduler) */}
         <section ref={schedulerRef} className="py-12 px-4 border-t border-slate-200 bg-slate-100/50">
           <div className="max-w-4xl mx-auto text-center mb-8">
@@ -104,7 +76,7 @@ export default function Home() {
               Elegí tu fecha y horario
             </h2>
             <p className="text-xs text-slate-500 max-w-xs mx-auto mt-2">
-              Seleccioná un día del calendario que tenga slots libres y agendá en 10 segundos.
+              Seleccioná un día del calendario que tenga horarios disponibles y agendá tu turno en 10 segundos.
             </p>
           </div>
           <Scheduler onSuccess={() => {}} />
@@ -129,7 +101,7 @@ export default function Home() {
               <Calendar className="w-6 h-6 text-rojo-sl mb-3" />
               <h4 className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Días de Atención</h4>
               <p className="text-sm font-extrabold text-blue-sl">Martes a Sábados</p>
-              <p className="text-[11px] text-slate-500 mt-1">Habilitado dinámicamente</p>
+              <p className="text-[11px] text-slate-500 mt-1">(Sujeto a disponibilidad)</p>
             </div>
 
             <div className="p-5 bg-white border border-slate-200 rounded-xl flex flex-col items-center shadow-sm">
@@ -167,18 +139,6 @@ export default function Home() {
             <p className="text-[10px] text-slate-500 mt-1">
               Calle 81 entre 9 bis y 10, Villa Elvira, La Plata • Santiago Lencina Barber.
             </p>
-            <p className="text-[10px] text-rojo-sl mt-0.5 font-bold">
-              🦅 La Barbería del Ciclón 🦅
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-650 hover:text-rojo-sl transition-all shadow-sm font-semibold cursor-pointer"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Acceso Santiago 🔒</span>
-            </Link>
           </div>
         </div>
       </footer>

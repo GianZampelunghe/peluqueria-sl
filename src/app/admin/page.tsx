@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import AdminDashboard from '@/components/AdminDashboard';
 import LoyaltyCRM from '@/components/LoyaltyCRM';
 import { 
-  Calendar, Clock, Plus, Trash2, Settings, Lock, LogOut, Save, RefreshCw, ChevronRight,
+  Calendar, Clock, Plus, Trash2, Settings, LogOut, Save, RefreshCw, ChevronRight,
   Award, Phone, Image as ImageIcon, Sparkles
 } from 'lucide-react';
 
@@ -44,20 +44,21 @@ interface GalleryItem {
 }
 
 export default function AdminPanel() {
-  // Autenticación por PIN
+  // Autenticación real por Supabase Auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [correctPin, setCorrectPin] = useState('1234');
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Configuración del sistema
+  // Configuración de la barbería
   const [whatsappNumber, setWhatsappNumber] = useState('542216789012');
   const [cutsRequired, setCutsRequired] = useState(6);
   const [rewardText, setRewardText] = useState('¡7mo corte 100% GRATIS!');
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
-  // Navegación de pestañas
+  // Navegación de pestañas (términos simples)
   const [activeTab, setActiveTab] = useState<'agenda' | 'horarios' | 'crm' | 'galeria' | 'ajustes'>('agenda');
 
   // Datos de la base de datos
@@ -76,9 +77,9 @@ export default function AdminPanel() {
   // Filtros y búsquedas
   const [crmSearch, setCrmSearch] = useState('');
 
-  // Creación manual de slots
+  // Creación manual de horarios
   const [newCustomTime, setNewCustomTime] = useState('');
-  // Generador masivo de slots
+  // Generador masivo de horarios
   const [genStart, setGenStart] = useState('10:00');
   const [genEnd, setGenEnd] = useState('20:00');
   const [genInterval, setGenInterval] = useState(60);
@@ -96,13 +97,36 @@ export default function AdminPanel() {
   const [loadingCRM, setLoadingCRM] = useState(false);
   const [loadingGallery, setLoadingGallery] = useState(false);
   
-  // Validar sesión inicial por PIN
+  // Validar sesión inicial de Supabase Auth
   useEffect(() => {
-    const savedAuth = sessionStorage.getItem('admin_authenticated');
-    if (savedAuth === 'true') {
-      setIsAuthenticated(true);
-    }
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setIsAuthenticated(true);
+        }
+      } catch (err) {
+        console.error('Error al verificar sesión inicial:', err);
+      } finally {
+        setCheckingSession(false);
+      }
+    };
+    checkSession();
+
+    // Suscribirse a cambios de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    });
+
     loadSystemSettings();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Cargar datos de configuración
@@ -116,13 +140,12 @@ export default function AdminPanel() {
       
       if (data?.value) {
         const val = data.value as any;
-        if (val.pin) setCorrectPin(val.pin);
         if (val.whatsapp_number) setWhatsappNumber(val.whatsapp_number);
         if (val.cuts_required) setCutsRequired(val.cuts_required);
         if (val.reward_text) setRewardText(val.reward_text);
       }
     } catch (err) {
-      console.error('Error al cargar ajustes del sistema:', err);
+      console.error('Error al cargar configuración:', err);
     }
   };
 
@@ -201,29 +224,40 @@ export default function AdminPanel() {
       if (error) throw error;
       setGalleryItems(data || []);
     } catch (err) {
-      console.error('Error al traer trabajos de galería:', err);
+      console.error('Error al traer fotos de la galería:', err);
     } finally {
       setLoadingGallery(false);
     }
   };
 
-  // Manejadores de Autenticación
-  const handlePinSubmit = (e: React.FormEvent) => {
+  // Manejadores de Autenticación con Supabase Auth
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === correctPin) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('admin_authenticated', 'true');
+    if (!emailInput.trim() || !passwordInput.trim()) return;
+
+    try {
       setLoginError('');
-    } else {
-      setLoginError('PIN Incorrecto. Volvé a intentar.');
-      setPinInput('');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailInput.trim(),
+        password: passwordInput.trim()
+      });
+
+      if (error) {
+        setLoginError('Credenciales incorrectas. Verificá tu correo y contraseña.');
+      } else {
+        setIsAuthenticated(true);
+      }
+    } catch (err: any) {
+      console.error('Error al iniciar sesión:', err);
+      setLoginError('Ocurrió un error inesperado al intentar acceder.');
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
-    sessionStorage.removeItem('admin_authenticated');
-    setPinInput('');
+    setEmailInput('');
+    setPasswordInput('');
   };
 
   // Acciones en la Agenda
@@ -238,12 +272,12 @@ export default function AdminPanel() {
       
       // Actualizar listado local de turnos
       setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
-      // Recargar CRM por si el trigger sumó cortes en segundo plano
+      // Recargar clientes por si el trigger sumó cortes en segundo plano
       if (newStatus === 'completed' || newStatus === 'cancelled') {
         fetchClients();
       }
     } catch (err) {
-      console.error('Error al cambiar estado de reserva:', err);
+      console.error('Error al cambiar estado del turno:', err);
       alert('Error al actualizar el estado del turno.');
     }
   };
@@ -279,14 +313,14 @@ export default function AdminPanel() {
         fetchDailySlots();
       }
     } catch (err) {
-      console.error('Error al agregar slot personalizado:', err);
+      console.error('Error al agregar horario:', err);
     }
   };
 
   const handleDeleteSlot = async (slotId: string, timeSlot: string) => {
     const hasBooking = bookings.some(b => b.booking_time === timeSlot && b.status !== 'cancelled');
     if (hasBooking) {
-      const confirmDelete = confirm('¡Atención! Hay un turno reservado activo en este horario. ¿Seguro que querés eliminarlo? Esto podría descolocar al cliente.');
+      const confirmDelete = confirm('¡Atención! Hay un turno reservado activo en este horario. ¿Seguro que querés eliminarlo?');
       if (!confirmDelete) return;
     }
 
@@ -299,7 +333,7 @@ export default function AdminPanel() {
       if (error) throw error;
       setDailySlots(prev => prev.filter(s => s.id !== slotId));
     } catch (err) {
-      console.error('Error al borrar slot:', err);
+      console.error('Error al borrar horario:', err);
     }
   };
 
@@ -317,9 +351,9 @@ export default function AdminPanel() {
     }
   };
 
-  // Generador Masivo de Slots
+  // Generador Masivo de Horarios
   const handleGenerateSlots = async () => {
-    const confirmGen = confirm(`Se generarán turnos para el día ${adminDate} desde las ${genStart} hasta las ${genEnd} cada ${genInterval} minutos. ¿Continuar?`);
+    const confirmGen = confirm(`Se crearán horarios para el día ${adminDate} desde las ${genStart} hasta las ${genEnd} cada ${genInterval} minutos. ¿Continuar?`);
     if (!confirmGen) return;
 
     try {
@@ -345,8 +379,8 @@ export default function AdminPanel() {
       
       fetchDailySlots();
     } catch (err) {
-      console.error('Error generando slots en bloque:', err);
-      alert('Error generando horarios en lote.');
+      console.error('Error al generar horarios:', err);
+      alert('Error al generar horarios en lote.');
     } finally {
       setLoadingSlots(false);
     }
@@ -364,7 +398,7 @@ export default function AdminPanel() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  // Modificar cortes manuales en CRM
+  // Ajuste manual de visitas de clientes
   const handleAdjustCuts = async (clientId: string, currentCuts: number, direction: 'up' | 'down') => {
     const newValue = direction === 'up' ? currentCuts + 1 : Math.max(0, currentCuts - 1);
     try {
@@ -376,7 +410,7 @@ export default function AdminPanel() {
 
       setClients(prev => prev.map(c => c.id === clientId ? { ...c, cuts_completed: newValue } : c));
     } catch (err) {
-      console.error('Error ajustando cortes en cliente:', err);
+      console.error('Error al ajustar cortes de cliente:', err);
     }
   };
 
@@ -424,7 +458,7 @@ export default function AdminPanel() {
         .single();
 
       if (error) {
-        // Si falla la inserción en DB, intentar borrar el archivo de storage para evitar huérfanos
+        // Borrar el archivo de storage para evitar huérfanos
         await supabase.storage.from('gallery-images').remove([filePath]);
         throw error;
       }
@@ -439,7 +473,7 @@ export default function AdminPanel() {
       setGalleryFilePreview('');
       alert('Trabajo agregado con éxito a la galería.');
     } catch (err: any) {
-      console.error('Error al agregar item de galería:', err);
+      console.error('Error al agregar foto de galería:', err);
       alert('Ocurrió un error al guardar el trabajo: ' + (err.message || err));
     } finally {
       setSavingGalleryItem(false);
@@ -452,16 +486,17 @@ export default function AdminPanel() {
     if (!confirmDelete) return;
 
     try {
-      // 1. Extraer nombre de archivo desde la URL de la imagen
-      const fileName = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+      // 1. Extraer nombre de archivo desde la URL de la imagen (si corresponde a nuestro bucket)
+      if (imageUrl.includes('/storage/v1/object/public/gallery-images/')) {
+        const fileName = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+        if (fileName) {
+          const { error: storageError } = await supabase.storage
+            .from('gallery-images')
+            .remove([fileName]);
 
-      if (fileName && !imageUrl.includes('unsplash.com')) { // Evitar borrar placeholders de unsplash
-        const { error: storageError } = await supabase.storage
-          .from('gallery-images')
-          .remove([fileName]);
-
-        if (storageError) {
-          console.error('Error al remover archivo de Storage:', storageError);
+          if (storageError) {
+            console.error('Error al remover archivo de Storage:', storageError);
+          }
         }
       }
 
@@ -473,14 +508,14 @@ export default function AdminPanel() {
 
       if (error) throw error;
       setGalleryItems(prev => prev.filter(item => item.id !== itemId));
-      alert('Trabajo eliminado correctamente.');
+      alert('Foto eliminada de la galería.');
     } catch (err: any) {
-      console.error('Error al eliminar item de galería:', err);
+      console.error('Error al eliminar foto de galería:', err);
       alert('Ocurrió un error al eliminar el trabajo: ' + (err.message || err));
     }
   };
 
-  // Guardar Ajustes Generales
+  // Guardar Ajustes Generales de la Barbería
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -488,7 +523,6 @@ export default function AdminPanel() {
       setSettingsSuccess(false);
 
       const configValue = {
-        pin: correctPin.trim(),
         whatsapp_number: whatsappNumber.replace(/\D/g, '').trim(),
         cuts_required: Number(cutsRequired),
         reward_text: rewardText.trim()
@@ -522,15 +556,26 @@ export default function AdminPanel() {
     return `${weekdays[dateObj.getDay()]} ${day} de ${months[dateObj.getMonth()]}`;
   };
 
-  // VISTA 1: LOGIN POR PIN SI NO ESTÁ AUTENTICADO
+  // Pantalla de carga inicial mientras valida sesión
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-b-2 border-blue-sl mx-auto"></div>
+      </div>
+    );
+  }
+
+  // VISTA 1: LOGIN REAL POR SUPABASE AUTH SI NO ESTÁ AUTENTICADO
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-6 shadow-xl">
           <div className="text-center mb-6">
             <span className="text-4xl block mb-2">🔒</span>
-            <h2 className="text-2xl font-black text-slate-800">Panel Peluquería <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span></h2>
-            <p className="text-xs text-slate-500 mt-1">Santiago, ingresá tu PIN de seguridad</p>
+            <h2 className="text-2xl font-black text-slate-800">
+              Panel Peluquería <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">Ingresá tu correo y contraseña para acceder</p>
           </div>
 
           {loginError && (
@@ -539,43 +584,43 @@ export default function AdminPanel() {
             </div>
           )}
 
-          <form onSubmit={handlePinSubmit} className="space-y-4">
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
+              <label className="block text-[10px] text-slate-550 mb-1 font-bold uppercase">Correo Electrónico</label>
+              <input
+                type="email"
+                required
+                placeholder="santiago@ejemplo.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full px-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none transition-all font-semibold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-slate-550 mb-1 font-bold uppercase">Contraseña</label>
               <input
                 type="password"
-                pattern="[0-9]*"
-                inputMode="numeric"
-                maxLength={8}
                 required
-                placeholder="PIN (Pista: 1234)"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                className="w-full py-4 text-center bg-slate-50 border border-slate-200 rounded-xl text-2xl tracking-widest text-slate-800 focus:border-blue-sl focus:outline-none transition-all font-bold"
+                placeholder="••••••••"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none transition-all font-semibold"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-rojo-sl hover:bg-rojo-sl-hover text-white font-bold rounded-xl shadow-md shadow-rojo-sl/10 transition-all flex items-center justify-center gap-1 cursor-pointer text-sm"
+              className="w-full mt-2 py-3.5 bg-rojo-sl hover:bg-rojo-sl-hover text-white font-bold rounded-xl shadow-md shadow-rojo-sl/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer text-sm"
             >
-              <span>Acceder al Panel</span>
+              <span>Iniciar Sesión</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </form>
 
-          {/* Botón de Pista de PIN visible solicitado para testing */}
-          <div className="mt-4 p-2.5 bg-blue-sl/5 border border-blue-sl/10 rounded-xl text-center">
-            <button
-              onClick={() => setPinInput('1234')}
-              className="text-xs text-blue-sl font-extrabold hover:underline"
-            >
-              🔑 Autocompletar PIN por defecto: 1234
-            </button>
-          </div>
-
           <div className="mt-6 text-center">
-            <a href="/" className="text-xs text-slate-550 hover:text-blue-sl transition-colors font-bold">
-              ← Volver a la Landing Pública
+            <a href="/" className="text-xs text-slate-500 hover:text-blue-sl transition-colors font-bold">
+              ← Volver al inicio
             </a>
           </div>
         </div>
@@ -583,17 +628,19 @@ export default function AdminPanel() {
     );
   }
 
-  // VISTA 2: PANEL DE ADMINISTRACIÓN PRINCIPAL LIGHT
+  // VISTA 2: PANEL DE CONTROL DE SANTIAGO (LIGHT MODE)
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
-      {/* Header Admin Light */}
+      {/* Header Admin */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">💈</span>
             <div>
-              <h1 className="text-sm font-black text-slate-800">PELUQUERÍA <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span></h1>
-              <p className="text-[10px] text-rojo-sl font-extrabold uppercase tracking-wider">Santiago Admin Panel</p>
+              <h1 className="text-sm font-black text-slate-800">
+                PELUQUERÍA <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span>
+              </h1>
+              <p className="text-[10px] text-rojo-sl font-extrabold uppercase tracking-wider">Panel de Administración</p>
             </div>
           </div>
 
@@ -607,7 +654,7 @@ export default function AdminPanel() {
         </div>
       </header>
 
-      {/* Navegación por pestañas Light */}
+      {/* Navegación por pestañas con términos cotidianos */}
       <div className="bg-white/80 border-b border-slate-200 sticky top-[57px] z-30 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 flex justify-between sm:justify-start gap-1 overflow-x-auto py-2">
           <button
@@ -647,7 +694,7 @@ export default function AdminPanel() {
             }`}
           >
             <ImageIcon className="w-3.5 h-3.5" />
-            <span>Gestor de Galería</span>
+            <span>Galería de Fotos</span>
           </button>
 
           <button
@@ -657,15 +704,15 @@ export default function AdminPanel() {
             }`}
           >
             <Settings className="w-3.5 h-3.5" />
-            <span>Ajustes</span>
+            <span>Configuración</span>
           </button>
         </div>
       </div>
 
-      {/* Contenedor de contenido central */}
+      {/* Contenedor central */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:py-8">
         
-        {/* FILTRO DE FECHAS GLOBAL PARA AGENDA Y HORARIOS */}
+        {/* FILTRO DE FECHAS GLOBAL */}
         {(activeTab === 'agenda' || activeTab === 'horarios') && (
           <div className="mb-6 bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
             <div className="space-y-1">
@@ -688,7 +735,7 @@ export default function AdminPanel() {
                   if (activeTab === 'agenda') fetchBookings();
                   else if (activeTab === 'horarios') fetchDailySlots();
                 }}
-                className="p-2 bg-slate-50 border border-slate-200 hover:border-slate-350 rounded-lg text-slate-650 hover:text-blue-sl transition-all cursor-pointer"
+                className="p-2 bg-slate-50 border border-slate-200 hover:border-slate-350 rounded-lg text-slate-655 hover:text-blue-sl transition-all cursor-pointer"
                 title="Refrescar datos"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -717,27 +764,27 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* PESTAÑA: HORARIOS (SLOTS FLEXIBLES) */}
+        {/* PESTAÑA: HORARIOS */}
         {activeTab === 'horarios' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* COLUMNA 1: AGREGAR / GENERAR */}
+            {/* AGREGAR / GENERAR */}
             <div className="space-y-6">
               
               {/* Bloque: Agregar uno manual */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                  ⏰ Agregar Horario Individual
+                  ⏰ Agregar un Horario
                 </h3>
                 <form onSubmit={handleAddCustomSlot} className="space-y-4">
                   <div>
-                    <label className="block text-[10px] text-slate-500 font-bold mb-1.5 uppercase">
-                      Hora del corte (Formato HH:MM)
+                    <label className="block text-[10px] text-slate-550 font-bold mb-1.5 uppercase">
+                      Hora del corte (Ej: 10:30 o 14:15)
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="Ej: 11:30, 16:45"
+                      placeholder="HH:MM"
                       value={newCustomTime}
                       onChange={(e) => setNewCustomTime(e.target.value)}
                       className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:border-blue-sl focus:outline-none focus:ring-1 focus:ring-blue-sl"
@@ -748,7 +795,7 @@ export default function AdminPanel() {
                     className="w-full py-2.5 bg-rojo-sl hover:bg-rojo-sl-hover text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rojo-sl/5"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Agregar horario</span>
+                    <span>Agregar Horario</span>
                   </button>
                 </form>
               </div>
@@ -756,7 +803,7 @@ export default function AdminPanel() {
               {/* Bloque: Generador automático */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                 <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                  ⚡ Generador Rápido de Horarios
+                  ⚡ Crear Horarios en Bloque
                 </h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
@@ -766,22 +813,22 @@ export default function AdminPanel() {
                         type="time"
                         value={genStart}
                         onChange={(e) => setGenStart(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-850"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-805"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-slate-500 font-bold mb-1 uppercase">Cierre</label>
+                      <label className="block text-[10px] text-slate-550 font-bold mb-1 uppercase">Cierre</label>
                       <input
                         type="time"
                         value={genEnd}
                         onChange={(e) => setGenEnd(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-850"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-805"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-slate-500 font-bold mb-1 uppercase">Intervalo (Minutos)</label>
+                    <label className="block text-[10px] text-slate-550 font-bold mb-1 uppercase">Intervalo (Minutos)</label>
                     <select
                       value={genInterval}
                       onChange={(e) => setGenInterval(Number(e.target.value))}
@@ -799,19 +846,19 @@ export default function AdminPanel() {
                     onClick={handleGenerateSlots}
                     className="w-full py-3 bg-slate-100 border border-slate-200 hover:border-blue-sl/30 text-slate-700 hover:text-blue-sl font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                   >
-                    <span>Generar Franja del Día</span>
+                    <span>Crear Horarios del Día</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* COLUMNA 2-3: LISTADO DE SLOTS */}
+            {/* LISTADO DE HORARIOS */}
             <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
                 <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider">
-                  📋 Lista de horarios del Día
+                  📋 Horarios habilitados para hoy
                 </h3>
-                <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-250 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] bg-slate-100 text-slate-655 border border-slate-250 px-2 py-0.5 rounded-full font-bold">
                   {dailySlots.length} horarios creados
                 </span>
               </div>
@@ -887,7 +934,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* PESTAÑA: CRM FIDELIZACIÓN & RANKING */}
+        {/* PESTAÑA: HISTORIAL CLIENTES */}
         {activeTab === 'crm' && (
           <LoyaltyCRM 
             clients={clients} 
@@ -900,9 +947,7 @@ export default function AdminPanel() {
           />
         )}
 
-        {/* ======================================================== */}
-        {/* PESTAÑA: GESTOR DE GALERÍA (NUEVO) */}
-        {/* ======================================================== */}
+        {/* PESTAÑA: GALERÍA DE FOTOS */}
         {activeTab === 'galeria' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1061,47 +1106,26 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* PESTAÑA: AJUSTES DE SISTEMA */}
+        {/* PESTAÑA: CONFIGURACIÓN */}
         {activeTab === 'ajustes' && (
           <div className="max-w-xl mx-auto">
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
               <h2 className="text-base font-black text-blue-sl uppercase tracking-wider mb-6 border-b border-slate-100 pb-3 flex items-center gap-2">
                 <Settings className="w-5 h-5 text-blue-sl" />
-                <span>Ajustes del Sistema</span>
+                <span>Configuración de la Barbería</span>
               </h2>
 
               {settingsSuccess && (
                 <div className="mb-6 bg-emerald-50 border border-emerald-250 text-emerald-800 text-xs p-3.5 rounded-xl text-center font-bold shadow-sm animate-fade-in">
-                  ✓ Ajustes guardados correctamente en Supabase.
+                  ✓ Configuración guardada correctamente.
                 </div>
               )}
 
               <form onSubmit={handleSaveSettings} className="space-y-5">
-                {/* 1. PIN */}
+                {/* 1. WhatsApp de Destino */}
                 <div>
                   <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
-                    PIN de Acceso Administrador
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: 1234"
-                      value={correctPin}
-                      onChange={(e) => setCorrectPin(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                    PIN para bloquear/desbloquear esta sección.
-                  </p>
-                </div>
-
-                {/* 2. Whatsapp de Destino */}
-                <div>
-                  <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
-                    Número de WhatsApp Comercial
+                    Número de WhatsApp para Turnos
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1115,14 +1139,14 @@ export default function AdminPanel() {
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                    Número de celular con código de área del país (sin símbolos ni espacios) donde llegarán los turnos.
+                    Número de celular con código de área del país (sin símbolos ni espacios) donde se confirmarán los turnos.
                   </p>
                 </div>
 
-                {/* 3. Cortes requeridos */}
+                {/* 2. Cortes requeridos */}
                 <div>
                   <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
-                    Cortes requeridos para el premio
+                    Cortes necesarios para el beneficio
                   </label>
                   <input
                     type="number"
@@ -1134,14 +1158,14 @@ export default function AdminPanel() {
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
                   />
                   <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                    Cantidad de visitas que el cliente debe completar antes de ganar el beneficio.
+                    Cantidad de visitas que el cliente debe completar antes de ganar el beneficio gratis.
                   </p>
                 </div>
 
-                {/* 4. Descripcion del premio */}
+                {/* 3. Descripción del premio */}
                 <div>
                   <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
-                    Descripción del Premio
+                    Detalle del Beneficio Gratis
                   </label>
                   <input
                     type="text"
@@ -1152,7 +1176,7 @@ export default function AdminPanel() {
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
                   />
                   <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                    El texto de premio que se le mostrará a los clientes VIP.
+                    El texto descriptivo que se le mostrará a los clientes frecuentes.
                   </p>
                 </div>
 
