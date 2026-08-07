@@ -529,7 +529,7 @@ export default function AdminPanel() {
         <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-6 shadow-xl">
           <div className="text-center mb-6">
             <span className="text-4xl block mb-2">🔒</span>
-            <h2 className="text-2xl font-black text-blue-sl">Panel Peluquería SL</h2>
+            <h2 className="text-2xl font-black text-slate-800">Panel Peluquería <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span></h2>
             <p className="text-xs text-slate-500 mt-1">Santiago, ingresá tu PIN de seguridad</p>
           </div>
 
@@ -592,7 +592,7 @@ export default function AdminPanel() {
           <div className="flex items-center gap-2">
             <span className="text-xl">💈</span>
             <div>
-              <h1 className="text-sm font-black text-blue-sl">PELUQUERÍA SL</h1>
+              <h1 className="text-sm font-black text-slate-800">PELUQUERÍA <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span></h1>
               <p className="text-[10px] text-rojo-sl font-extrabold uppercase tracking-wider">Santiago Admin Panel</p>
             </div>
           </div>
@@ -637,7 +637,7 @@ export default function AdminPanel() {
             }`}
           >
             <Award className="w-3.5 h-3.5" />
-            <span>Fidelización CRM</span>
+            <span>Historial Clientes</span>
           </button>
 
           <button

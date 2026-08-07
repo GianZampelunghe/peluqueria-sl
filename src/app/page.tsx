@@ -45,12 +45,12 @@ export default function Home() {
       {/* Navbar Minimalista Light Mode */}
       <header className="sticky top-0 bg-white/85 backdrop-blur-md border-b border-slate-200 z-50 transition-all shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">💈</span>
-            <span className="font-black tracking-wider text-blue-sl text-base">
-              PELUQUERÍA <span className="text-rojo-sl">SL</span>
+          <Link href="/" className="flex items-center gap-2 group hover:opacity-85 transition-all">
+            <span className="text-xl group-hover:rotate-12 transition-transform">💈</span>
+            <span className="font-black tracking-wider text-slate-800 text-base">
+              PELUQUERÍA <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span>
             </span>
-          </div>
+          </Link>
           <nav className="flex items-center gap-4">
             <button
               onClick={scrollToScheduler}
@@ -122,7 +122,7 @@ export default function Home() {
               <MapPin className="w-6 h-6 text-rojo-sl mb-3" />
               <h4 className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Ubicación</h4>
               <p className="text-sm font-extrabold text-blue-sl">Villa Elvira, La Plata</p>
-              <p className="text-[11px] text-slate-500 mt-1">Calle 76 e/ 4 y 5</p>
+              <p className="text-[11px] text-slate-500 mt-1">Calle 81 entre 9 bis y 10</p>
             </div>
             
             <div className="p-5 bg-white border border-slate-200 rounded-xl flex flex-col items-center shadow-sm">
@@ -142,15 +142,33 @@ export default function Home() {
         </section>
       </main>
 
+      {/* Sección de Redes Sociales (Instagram Destacado) */}
+      <section className="py-8 px-4 text-center border-t border-slate-200 bg-slate-50/50">
+        <div className="max-w-md mx-auto">
+          <p className="text-xs text-slate-500 uppercase tracking-wider font-black mb-3">Seguinos en nuestras redes 🦅</p>
+          <a
+            href="https://www.instagram.com/peluqueria_sl"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-full py-4.5 px-6 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] hover:opacity-90 text-white font-extrabold rounded-xl shadow-lg shadow-[#fd1d1d]/10 items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer text-base md:text-lg"
+          >
+            <span>📷 Instagram @peluqueria_sl</span>
+          </a>
+        </div>
+      </section>
+
       {/* Footer del Local Light */}
       <footer className="bg-slate-100 border-t border-slate-200 py-10 px-4 mt-auto">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="text-center sm:text-left">
             <p className="text-sm text-slate-600 font-bold">
-              © {new Date().getFullYear()} Peluquería SL. Todos los derechos reservados.
+              © {new Date().getFullYear()} Peluquería <span className="text-blue-sl">S</span><span className="text-rojo-sl">L</span>. Todos los derechos reservados.
             </p>
             <p className="text-[10px] text-slate-500 mt-1">
-              Villa Elvira, La Plata, Buenos Aires • Santiago Lencina Barber.
+              Calle 81 entre 9 bis y 10, Villa Elvira, La Plata • Santiago Lencina Barber.
+            </p>
+            <p className="text-[10px] text-rojo-sl mt-0.5 font-bold">
+              🦅 La Barbería del Ciclón 🦅
             </p>
           </div>
           <div className="flex items-center gap-4">

@@ -41,7 +41,7 @@ export default function LoyaltyCRM({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="space-y-1 text-center sm:text-left">
           <h3 className="text-sm font-bold text-blue-sl uppercase tracking-wider">
-            🏆 CRM Clientes & Tarjeta de Regalo
+            🏆 Historial Clientes & Tarjeta de Regalo
           </h3>
           <p className="text-xs text-slate-500 font-medium">
             Se resalta en rojo a los clientes que alcanzan la meta de cortes.
