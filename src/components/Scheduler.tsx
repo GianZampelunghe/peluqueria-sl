@@ -158,35 +158,38 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       setSubmitting(true);
       setErrorMessage('');
 
-      // Buscar si el cliente ya existe por número de teléfono
+      // 1. Manejo resiliente de CRM de clientes: si la tabla 'clients' falla, la reserva no se bloquea
       let clientId: string | null = null;
-      const { data: existingClient, error: clientSearchError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('phone', cleanPhone)
-        .maybeSingle();
-
-      if (clientSearchError) throw clientSearchError;
-
-      if (existingClient) {
-        clientId = existingClient.id;
-      } else {
-        // Registrar nuevo cliente
-        const { data: newClient, error: clientCreateError } = await supabase
+      try {
+        const { data: existingClient } = await supabase
           .from('clients')
-          .insert({
-            fullname: fullname.trim(),
-            phone: cleanPhone,
-            cuts_completed: 0,
-          })
           .select('id')
-          .single();
+          .eq('phone', cleanPhone)
+          .maybeSingle();
 
-        if (clientCreateError) throw clientCreateError;
-        clientId = newClient.id;
+        if (existingClient?.id) {
+          clientId = existingClient.id;
+        } else {
+          const { data: newClient } = await supabase
+            .from('clients')
+            .insert({
+              fullname: fullname.trim(),
+              phone: cleanPhone,
+              cuts_completed: 0,
+            })
+            .select('id')
+            .maybeSingle();
+
+          if (newClient?.id) {
+            clientId = newClient.id;
+          }
+        }
+      } catch (clientErr) {
+        console.warn('No se pudo asociar el cliente en CRM (resiliente):', clientErr);
+        // Continuamos con clientId = null para garantizar el turno
       }
 
-      // Insertar el turno en bookings
+      // 2. Inserción del turno en la tabla 'bookings'
       const { error: bookingError } = await supabase
         .from('bookings')
         .insert({
@@ -202,10 +205,11 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
         if (bookingError.code === '23505') {
           throw new Error('Ese turno acaba de ser reservado por otra persona hace unos instantes. Por favor, selecciona otro horario.');
         }
-        throw bookingError;
+        console.error('Error al insertar reserva en Supabase:', bookingError);
+        throw new Error('Ocurrió un problema al agendar tu turno. Por favor, intenta de nuevo en unos momentos o contáctanos por WhatsApp.');
       }
 
-      // Guardar datos para pantalla final
+      // Guardar datos para pantalla de confirmación exitosa
       setCreatedBooking({
         fullname: fullname.trim(),
         date: selectedDate,
@@ -215,8 +219,12 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
       setStep(4);
       onSuccess();
     } catch (err: any) {
-      console.error('Error al reservar:', err);
-      setErrorMessage(err.message || 'Ocurrió un error inesperado al guardar el turno. Intentá de nuevo.');
+      console.error('Error al reservar turno:', err);
+      if (err.message && err.message.includes('acaba de ser reservado')) {
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage('Ocurrió un problema al agendar tu turno. Por favor, intenta de nuevo en unos momentos o contáctanos por WhatsApp.');
+      }
     } finally {
       setSubmitting(false);
     }
