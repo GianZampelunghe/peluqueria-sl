@@ -235,8 +235,12 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
   const getWhatsAppLink = () => {
     if (!createdBooking) return '';
     const dateLabel = formatDateLabel(createdBooking.date);
-    const msg = `¡Hola Santiago! 👋 Quiero confirmar mi turno en Peluquería SL:\n\n📅 Fecha: ${dateLabel}\n⏰ Hora: ${createdBooking.time} hs\n👤 Nombre: ${createdBooking.fullname}\n📱 WhatsApp: ${createdBooking.phone}\n\n¡Nos vemos ahí! 💈`;
-    return `https://wa.me/${appConfig.whatsapp_number || '5492213163050'}?text=${encodeURIComponent(msg)}`;
+    
+    // Emojis codificados con secuencias de escape Unicode para asegurar compatibilidad absoluta con codificación de archivos y encodeURIComponent
+    const message = `\u00A1Hola Santiago! \uD83D\uDC4B Quiero confirmar mi turno en Peluquer\u00EDa SL:\n\n\uD83D\uDCC5 Fecha: ${dateLabel}\n\u23F0 Hora: ${createdBooking.time} hs\n\uD83D\uDC64 Nombre: ${createdBooking.fullname}\n\uD83D\uDCF1 WhatsApp: ${createdBooking.phone}\n\n\u00A1Nos vemos ah\u00ED! \uD83D\uDC88`;
+    
+    const cleanPhone = (appConfig.whatsapp_number || '5492213163050').replace(/\D/g, '');
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
   if (loading) {
