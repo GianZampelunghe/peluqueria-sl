@@ -294,26 +294,35 @@ export default function AdminPanel() {
     }
 
     try {
+      // 1. Validar sesión activa en Supabase Auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+        setIsAuthenticated(false);
+        return;
+      }
+
+      // 2. Insertar con upsert ignorando duplicados
       const { error } = await supabase
         .from('daily_slots')
-        .insert({
+        .upsert({
           date: adminDate,
           time_slot: newCustomTime.trim(),
           is_available: true
+        }, {
+          onConflict: 'date, time_slot',
+          ignoreDuplicates: true
         });
 
       if (error) {
-        if (error.code === '23505') {
-          alert('Ese horario ya existe para esta fecha.');
-        } else {
-          throw error;
-        }
+        throw error;
       } else {
         setNewCustomTime('');
-        fetchDailySlots();
+        await fetchDailySlots();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al agregar horario:', err);
+      alert('Error al agregar horario: ' + (err.message || 'Error desconocido'));
     }
   };
 
@@ -358,29 +367,58 @@ export default function AdminPanel() {
 
     try {
       setLoadingSlots(true);
+
+      // 1. Validar sesión activa en Supabase Auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.');
+        setIsAuthenticated(false);
+        return;
+      }
+
+      // 2. Filtrar en memoria franjas existentes para no romper el flujo
+      const existingTimeSlots = new Set(dailySlots.map(s => s.time_slot));
       const slotsToInsert = [];
       let currentMinutes = timeToMinutes(genStart);
       const endMinutes = timeToMinutes(genEnd);
 
+      if (currentMinutes > endMinutes) {
+        alert('La hora de inicio no puede ser posterior a la hora de fin.');
+        return;
+      }
+
       while (currentMinutes <= endMinutes) {
-        slotsToInsert.push({
-          date: adminDate,
-          time_slot: minutesToTime(currentMinutes),
-          is_available: true
-        });
+        const timeStr = minutesToTime(currentMinutes);
+        if (!existingTimeSlots.has(timeStr)) {
+          slotsToInsert.push({
+            date: adminDate,
+            time_slot: timeStr,
+            is_available: true
+          });
+        }
         currentMinutes += Number(genInterval);
       }
 
+      if (slotsToInsert.length === 0) {
+        alert('Todos los horarios seleccionados ya existen para esta fecha.');
+        return;
+      }
+
+      // 3. Upsert pasando onConflict: 'date, time_slot' e ignoreDuplicates: true
       const { error } = await supabase
         .from('daily_slots')
-        .upsert(slotsToInsert, { onConflict: 'date,time_slot' });
+        .upsert(slotsToInsert, {
+          onConflict: 'date, time_slot',
+          ignoreDuplicates: true
+        });
 
       if (error) throw error;
       
-      fetchDailySlots();
-    } catch (err) {
+      await fetchDailySlots();
+      alert(`¡Se crearon ${slotsToInsert.length} horarios correctamente!`);
+    } catch (err: any) {
       console.error('Error al generar horarios:', err);
-      alert('Error al generar horarios en lote.');
+      alert('Error al generar horarios en lote: ' + (err.message || 'Error desconocido'));
     } finally {
       setLoadingSlots(false);
     }
