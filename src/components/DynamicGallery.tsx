@@ -34,16 +34,16 @@ function GalleryCard({ work }: { work: GalleryItem }) {
   return (
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 transform hover:-translate-y-1 group flex flex-col justify-between">
       {/* Imagen del corte */}
-      <div className="relative aspect-[3/4] w-full h-80 sm:h-96 bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 group-hover:text-slate-400 transition-colors">
+      <div className="relative aspect-[3/4] w-full max-h-[520px] bg-slate-950 overflow-hidden flex items-center justify-center text-slate-700 transition-colors">
         {currentMedia ? (
           currentMedia.toLowerCase().match(/\.(mp4|webm)$/i) ? (
-            <video src={currentMedia} autoPlay loop muted playsInline controls={false} className="w-full h-full object-cover object-top group-hover:scale-105 transition-all duration-500" />
+            <video src={currentMedia} autoPlay loop muted playsInline controls={false} className="w-full h-full object-contain mx-auto group-hover:scale-105 transition-all duration-500" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={currentMedia}
               alt={work.title}
-              className="w-full h-full object-cover object-top group-hover:scale-105 transition-all duration-500"
+              className="w-full h-full object-contain mx-auto group-hover:scale-105 transition-all duration-500"
               loading="lazy"
               onError={(e) => {
                 (e.target as any).src = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80';
