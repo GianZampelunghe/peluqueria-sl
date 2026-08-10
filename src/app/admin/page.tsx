@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import AdminDashboard from '@/components/AdminDashboard';
 import LoyaltyCRM from '@/components/LoyaltyCRM';
 import { 
-  Calendar, Clock, Plus, Trash2, Settings, LogOut, Save, RefreshCw, ChevronRight,
+  Calendar, Clock, Plus, Trash2, Settings, LogOut, Save, RefreshCw, ChevronRight, ChevronLeft,
   Award, Phone, Image as ImageIcon, Sparkles
 } from 'lucide-react';
 
@@ -40,6 +40,7 @@ interface GalleryItem {
   title: string;
   category: string;
   image_url: string;
+  media_urls?: string[];
   created_at: string;
 }
 
@@ -87,8 +88,8 @@ export default function AdminPanel() {
   // Nuevo trabajo de Galería (Supabase Storage)
   const [galleryTitle, setGalleryTitle] = useState('');
   const [galleryCategory, setGalleryCategory] = useState('');
-  const [galleryFile, setGalleryFile] = useState<File | null>(null);
-  const [galleryFilePreview, setGalleryFilePreview] = useState<string>('');
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryFilePreviews, setGalleryFilePreviews] = useState<string[]>([]);
   const [savingGalleryItem, setSavingGalleryItem] = useState(false);
 
   // Carga general de estados
@@ -455,34 +456,41 @@ export default function AdminPanel() {
   // Gestión de Galería Dinámica (Agregar con Supabase Storage)
   const handleAddGalleryItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!galleryTitle.trim() || !galleryFile) {
-      alert('Por favor completa el título y selecciona una imagen.');
+    if (!galleryTitle.trim() || galleryFiles.length === 0) {
+      alert('Por favor completa el título y selecciona al menos un archivo multimedia.');
       return;
     }
 
     try {
       setSavingGalleryItem(true);
       
-      // 1. Subir archivo a Supabase Storage bucket 'gallery-images'
-      const fileExt = galleryFile.name.split('.').pop();
-      const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-      const filePath = uniqueFileName;
+      const uploadedUrls: string[] = [];
+      const fileNames: string[] = [];
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('gallery-images')
-        .upload(filePath, galleryFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // 1. Subir archivos a Supabase Storage bucket 'gallery-images'
+      for (const file of galleryFiles) {
+        const fileExt = file.name.split('.').pop();
+        const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+        const filePath = uniqueFileName;
+        
+        fileNames.push(filePath);
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('gallery-images')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-      // 2. Obtener URL pública
-      const { data: publicUrlData } = supabase.storage
-        .from('gallery-images')
-        .getPublicUrl(filePath);
+        if (uploadError) throw uploadError;
 
-      const publicUrl = publicUrlData.publicUrl;
+        // 2. Obtener URL pública
+        const { data: publicUrlData } = supabase.storage
+          .from('gallery-images')
+          .getPublicUrl(filePath);
+
+        uploadedUrls.push(publicUrlData.publicUrl);
+      }
 
       // 3. Insertar registro en la tabla de base de datos
       const { data, error } = await supabase
@@ -490,14 +498,15 @@ export default function AdminPanel() {
         .insert({
           title: galleryTitle.trim(),
           category: galleryCategory.trim() || 'Corte',
-          image_url: publicUrl
+          image_url: uploadedUrls[0],
+          media_urls: uploadedUrls
         })
         .select('*')
         .single();
 
       if (error) {
-        // Borrar el archivo de storage para evitar huérfanos
-        await supabase.storage.from('gallery-images').remove([filePath]);
+        // Borrar archivos de storage para evitar huérfanos
+        await supabase.storage.from('gallery-images').remove(fileNames);
         throw error;
       }
 
@@ -507,8 +516,8 @@ export default function AdminPanel() {
       // Limpiar inputs y preview
       setGalleryTitle('');
       setGalleryCategory('');
-      setGalleryFile(null);
-      setGalleryFilePreview('');
+      setGalleryFiles([]);
+      setGalleryFilePreviews([]);
       alert('Trabajo agregado con éxito a la galería.');
     } catch (err: any) {
       console.error('Error al agregar foto de galería:', err);
@@ -1026,51 +1035,83 @@ export default function AdminPanel() {
 
                 <div>
                   <label className="block text-[10px] text-slate-555 font-bold mb-1.5 uppercase">
-                    Imagen del Trabajo (Fototeca / Archivos)
+                    Multimedia (Imágenes / Videos)
                   </label>
                   
-                  {galleryFilePreview && (
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-100 border border-slate-200 mb-3 flex items-center justify-center shadow-inner">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={galleryFilePreview}
-                        alt="Previsualización"
-                        className="w-full h-full object-cover animate-fade-in"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGalleryFile(null);
-                          setGalleryFilePreview('');
-                        }}
-                        className="absolute top-2 right-2 bg-rojo-sl hover:bg-rojo-sl-hover text-white rounded-full p-1 shadow-md text-xs cursor-pointer font-bold w-6 h-6 flex items-center justify-center"
-                        title="Quitar imagen"
-                      >
-                        ✕
-                      </button>
+                  {galleryFilePreviews.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {galleryFilePreviews.map((preview, idx) => (
+                        <div key={idx} className="relative aspect-[3/4] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-inner group">
+                          {galleryFiles[idx].type.startsWith('video/') ? (
+                            <video src={preview} className="w-full h-full object-cover" />
+                          ) : (
+                            <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGalleryFiles(prev => prev.filter((_, i) => i !== idx));
+                                setGalleryFilePreviews(prev => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="self-end bg-rojo-sl hover:bg-rojo-sl-hover text-white rounded-full p-1 shadow-md text-xs cursor-pointer w-6 h-6 flex items-center justify-center"
+                              title="Quitar"
+                            >✕</button>
+                            
+                            <div className="flex justify-between">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => {
+                                  if (idx === 0) return;
+                                  setGalleryFiles(prev => { const arr = [...prev]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; return arr; });
+                                  setGalleryFilePreviews(prev => { const arr = [...prev]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; return arr; });
+                                }}
+                                className="bg-white/90 hover:bg-white text-slate-700 disabled:opacity-50 rounded-full p-1 shadow-md"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === galleryFilePreviews.length - 1}
+                                onClick={() => {
+                                  if (idx === galleryFilePreviews.length - 1) return;
+                                  setGalleryFiles(prev => { const arr = [...prev]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; return arr; });
+                                  setGalleryFilePreviews(prev => { const arr = [...prev]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; return arr; });
+                                }}
+                                className="bg-white/90 hover:bg-white text-slate-700 disabled:opacity-50 rounded-full p-1 shadow-md"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          {idx === 0 && <span className="absolute top-2 left-2 bg-blue-sl text-white text-[10px] px-1.5 py-0.5 rounded font-bold shadow z-10">Portada</span>}
+                        </div>
+                      ))}
                     </div>
                   )}
 
                   <label className="w-full py-3.5 px-4 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-sl/50 hover:bg-blue-sl/5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 text-xs font-bold text-slate-600 hover:text-blue-sl shadow-sm">
                     <ImageIcon className="w-4 h-4 text-slate-500" />
-                    <span>📷 Seleccionar foto de la fototeca</span>
+                    <span>📷 Seleccionar archivos de la fototeca</span>
                     <input
                       type="file"
+                      multiple
                       accept="image/*,video/mp4,video/webm"
                       className="hidden"
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setGalleryFile(file);
-                          setGalleryFilePreview(URL.createObjectURL(file));
+                        const files = Array.from(e.target.files || []);
+                        if (files.length > 0) {
+                          setGalleryFiles(prev => [...prev, ...files]);
+                          setGalleryFilePreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
                         }
                       }}
                     />
                   </label>
                   
-                  {galleryFile && (
+                  {galleryFiles.length > 0 && (
                     <p className="text-[10px] text-slate-500 mt-1.5 truncate">
-                      Archivo: <span className="font-semibold text-slate-700">{galleryFile.name}</span>
+                      <span className="font-semibold text-slate-700">{galleryFiles.length}</span> archivos seleccionados
                     </p>
                   )}
                 </div>
