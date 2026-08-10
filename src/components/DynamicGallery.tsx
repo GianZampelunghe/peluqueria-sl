@@ -85,7 +85,7 @@ export default function DynamicGallery() {
           <Sparkles className="w-4 h-4" /> Nuestros Estilos
         </span>
         <h2 className="text-3xl font-extrabold text-blue-sl">
-          Algunos de nuestros trabajos
+          Algunos de mis trabajos
         </h2>
         <p className="text-xs text-slate-500 max-w-xs mx-auto mt-2">
           Galería actualizada en tiempo real con los cortes más recientes realizados en el local.
@@ -106,17 +106,21 @@ export default function DynamicGallery() {
               {/* Imagen del corte */}
               <div className="relative aspect-square w-full bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 group-hover:text-slate-400 transition-colors">
                 {work.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={work.image_url}
-                    alt={work.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
-                    loading="lazy"
-                    onError={(e) => {
-                      // Fallback en caso de link de imagen roto
-                      (e.target as any).src = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80';
-                    }}
-                  />
+                  work.image_url.toLowerCase().match(/\.(mp4|webm)$/i) ? (
+                    <video src={work.image_url} autoPlay loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={work.image_url}
+                      alt={work.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                      loading="lazy"
+                      onError={(e) => {
+                        // Fallback en caso de link de imagen roto
+                        (e.target as any).src = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80';
+                      }}
+                    />
+                  )
                 ) : (
                   <ImageIcon className="w-10 h-10" />
                 )}

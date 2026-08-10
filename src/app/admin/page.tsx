@@ -1056,7 +1056,7 @@ export default function AdminPanel() {
                     <span>📷 Seleccionar foto de la fototeca</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,video/mp4,video/webm"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
