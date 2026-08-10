@@ -11,30 +11,65 @@ import Link from 'next/link';
 export default function Home() {
   const schedulerRef = useRef<HTMLDivElement>(null);
   const [cutsRequired, setCutsRequired] = useState(6);
-  const [rewardText, setRewardText] = useState('¡7mo corte 100% GRATIS!');
   const [whatsappNumber, setWhatsappNumber] = useState('5492213163050');
+  const [isClosed, setIsClosed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Cargar dinámicamente la configuración de fidelización para mostrarla en el banner y pasarla al Hero
+    // Cargar dinámicamente la configuración de fidelización y estado de apertura
     const loadConfig = async () => {
       try {
         const { data } = await supabase
           .from('settings')
-          .select('value')
+          .select('value, is_closed')
           .eq('key', 'app_config')
           .single();
-        if (data?.value) {
-          const val = data.value as any;
-          if (val.cuts_required) setCutsRequired(val.cuts_required);
-          if (val.reward_text) setRewardText(val.reward_text);
-          if (val.whatsapp_number) setWhatsappNumber(val.whatsapp_number);
+        if (data) {
+          if (data.value) {
+            const val = data.value as any;
+            if (val.cuts_required) setCutsRequired(val.cuts_required);
+            if (val.whatsapp_number) setWhatsappNumber(val.whatsapp_number);
+          }
+          if (data.is_closed !== undefined) {
+            setIsClosed(data.is_closed);
+          }
         }
       } catch (err) {
         console.error('Error al cargar config en Home:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadConfig();
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-sl"></div>
+      </div>
+    );
+  }
+
+  if (isClosed) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-6 text-center">
+        <div className="mb-8">
+          <span className="text-4xl block mb-4">😴</span>
+          <h1 className="text-3xl font-black mb-2">¡La barbería está cerrada temporalmente!</h1>
+          <p className="text-slate-400 font-medium">Volveremos a tomar turnos muy pronto.</p>
+        </div>
+        <a 
+          href="https://www.instagram.com/peluqueria_sl" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="px-6 py-3.5 bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] hover:opacity-90 font-bold rounded-xl shadow-lg transition-all"
+        >
+          📷 Seguime en Instagram
+        </a>
+      </div>
+    );
+  }
 
   const scrollToScheduler = () => {
     schedulerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -80,6 +115,12 @@ export default function Home() {
             </p>
           </div>
           <Scheduler onSuccess={() => {}} />
+          
+          <div className="max-w-4xl mx-auto mt-6 text-center">
+            <a href="https://wa.me/5492213163050" target="_blank" rel="noopener noreferrer" className="text-xs text-slate-500 hover:text-rojo-sl font-medium underline underline-offset-2 transition-colors">
+              Para cancelar el turno por cualquier inconveniente, comunícate conmigo por WhatsApp.
+            </a>
+          </div>
         </section>
 
         {/* Galería de Trabajos Dinámica (Ahora al final) */}

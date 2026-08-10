@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Phone, Award } from 'lucide-react';
+import { Search, Phone, Award, Trash2 } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -16,8 +16,8 @@ interface LoyaltyCRMProps {
   crmSearch: string;
   setCrmSearch: (search: string) => void;
   cutsRequired: number;
-  rewardText: string;
   onAdjustCuts: (id: string, currentCuts: number, direction: 'up' | 'down') => void;
+  onDeleteClient: (id: string) => void;
 }
 
 export default function LoyaltyCRM({
@@ -26,8 +26,8 @@ export default function LoyaltyCRM({
   crmSearch,
   setCrmSearch,
   cutsRequired,
-  rewardText,
-  onAdjustCuts
+  onAdjustCuts,
+  onDeleteClient
 }: LoyaltyCRMProps) {
   
   const filteredClients = clients.filter(c => 
@@ -143,22 +143,26 @@ export default function LoyaltyCRM({
                         </div>
                       </td>
 
-                      {/* Estatus VIP badge */}
-                      <td className="px-5 py-4 text-right">
-                        {isVip ? (
-                          <div className="inline-flex flex-col items-end">
+                      {/* Estatus VIP badge & Delete */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-3">
+                          {isVip ? (
                             <span className="px-2.5 py-0.5 bg-rojo-sl/10 border border-rojo-sl/20 rounded-full text-[10px] text-rojo-sl font-black uppercase flex items-center gap-1 tracking-wider animate-pulse-rojo">
                               VIP 🔥
                             </span>
-                            <span className="text-[9px] text-blue-sl mt-1 block font-bold italic">
-                              {rewardText}
+                          ) : (
+                            <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider block">
+                              Faltan {cutsRequired - client.cuts_completed} cortes
                             </span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider block">
-                            Faltan {cutsRequired - client.cuts_completed} cortes
-                          </span>
-                        )}
+                          )}
+                          <button
+                            onClick={() => onDeleteClient(client.id)}
+                            className="p-1.5 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Eliminar Cliente"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -14,7 +14,6 @@ export default function Scheduler({ onSuccess }: SchedulerProps) {
   const [appConfig, setAppConfig] = useState({
     whatsapp_number: '5492213163050',
     cuts_required: 6,
-    reward_text: '¡7mo corte 100% GRATIS!',
   });
 
   // Datos del negocio y reservas

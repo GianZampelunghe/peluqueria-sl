@@ -55,7 +55,7 @@ export default function AdminPanel() {
   // Configuración de la barbería
   const [whatsappNumber, setWhatsappNumber] = useState('5492213163050');
   const [cutsRequired, setCutsRequired] = useState(6);
-  const [rewardText, setRewardText] = useState('¡7mo corte 100% GRATIS!');
+  const [isClosed, setIsClosed] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
@@ -135,15 +135,17 @@ export default function AdminPanel() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
+        .select('value, is_closed')
         .eq('key', 'app_config')
         .single();
       
-      if (data?.value) {
-        const val = data.value as any;
-        if (val.whatsapp_number) setWhatsappNumber(val.whatsapp_number);
-        if (val.cuts_required) setCutsRequired(val.cuts_required);
-        if (val.reward_text) setRewardText(val.reward_text);
+      if (data) {
+        if (data.value) {
+          const val = data.value as any;
+          if (val.whatsapp_number) setWhatsappNumber(val.whatsapp_number);
+          if (val.cuts_required) setCutsRequired(val.cuts_required);
+        }
+        if (data.is_closed !== undefined) setIsClosed(data.is_closed);
       }
     } catch (err) {
       console.error('Error al cargar configuración:', err);
@@ -453,6 +455,33 @@ export default function AdminPanel() {
     }
   };
 
+  const handleDeleteClient = async (clientId: string) => {
+    const confirmDelete = window.confirm('¿Seguro que querés eliminar a este cliente y todos sus turnos asociados? Esta acción no se puede deshacer.');
+    if (!confirmDelete) return;
+
+    try {
+      // 1. Eliminar turnos del cliente
+      const { error: errorBookings } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('client_id', clientId);
+      if (errorBookings) throw errorBookings;
+
+      // 2. Eliminar cliente
+      const { error: errorClient } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+      if (errorClient) throw errorClient;
+
+      setClients(prev => prev.filter(c => c.id !== clientId));
+      alert('Cliente eliminado con éxito.');
+    } catch (err) {
+      console.error('Error al eliminar cliente:', err);
+      alert('Ocurrió un error al intentar eliminar el cliente.');
+    }
+  };
+
   // Gestión de Galería Dinámica (Agregar con Supabase Storage)
   const handleAddGalleryItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,8 +600,7 @@ export default function AdminPanel() {
 
       const configValue = {
         whatsapp_number: whatsappNumber.replace(/\D/g, '').trim(),
-        cuts_required: Number(cutsRequired),
-        reward_text: rewardText.trim()
+        cuts_required: Number(cutsRequired)
       };
 
       const { error } = await supabase
@@ -580,6 +608,7 @@ export default function AdminPanel() {
         .upsert({
           key: 'app_config',
           value: configValue,
+          is_closed: isClosed,
           updated_at: new Date().toISOString()
         });
 
@@ -989,8 +1018,8 @@ export default function AdminPanel() {
             crmSearch={crmSearch} 
             setCrmSearch={setCrmSearch} 
             cutsRequired={cutsRequired} 
-            rewardText={rewardText} 
             onAdjustCuts={handleAdjustCuts} 
+            onDeleteClient={handleDeleteClient}
           />
         )}
 
@@ -1242,21 +1271,25 @@ export default function AdminPanel() {
                   </p>
                 </div>
 
-                {/* 3. Descripción del premio */}
+                {/* 3. Estado de la Barbería */}
                 <div>
                   <label className="block text-xs text-slate-500 font-bold mb-1.5 uppercase">
-                    Detalle del Beneficio Gratis
+                    Estado de la Barbería: {isClosed ? 'CERRADA' : 'ABIERTA'}
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej: ¡7mo corte gratis!"
-                    value={rewardText}
-                    onChange={(e) => setRewardText(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-blue-sl"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
-                    El texto descriptivo que se le mostrará a los clientes frecuentes.
+                  <label className="relative inline-flex items-center cursor-pointer mt-1">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={!isClosed}
+                      onChange={() => setIsClosed(!isClosed)}
+                    />
+                    <div className="w-14 h-7 bg-red-500 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                    <span className={`ml-3 text-sm font-bold ${!isClosed ? 'text-red-500' : 'text-emerald-600'}`}>
+                      {isClosed ? 'Barbería temporalmente CERRADA' : 'Barbería operando normalmente'}
+                    </span>
+                  </label>
+                  <p className="text-[10px] text-slate-500 mt-2 font-medium">
+                    Si marcás que la barbería está CERRADA, los clientes verán una página de descanso y no podrán acceder al sitio ni reservar.
                   </p>
                 </div>
 
