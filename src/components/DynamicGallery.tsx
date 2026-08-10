@@ -11,39 +11,6 @@ interface GalleryItem {
   image_url: string;
 }
 
-// Trabajos de respaldo en caso de que la tabla de la base de datos esté vacía
-const FALLBACK_WORKS: GalleryItem[] = [
-  {
-    id: 'f1',
-    title: 'Fade Texturizado',
-    category: 'Urbano ⚽',
-    image_url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'f2',
-    title: 'Buzz Cut & Línea',
-    category: 'Tendencia 🔥',
-    image_url: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'f3',
-    title: 'Perfilado de Barba',
-    category: 'Detalle 💈',
-    image_url: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'f4',
-    title: 'Corte Clásico Foyth',
-    category: 'Selección 🏆',
-    image_url: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'f5',
-    title: 'High Fade Diseñado',
-    category: 'Urbano ⚡',
-    image_url: 'https://images.unsplash.com/photo-1605497746445-97d1b0a9ead9?w=600&auto=format&fit=crop&q=80',
-  }
-];
 
 export default function DynamicGallery() {
   const [works, setWorks] = useState<GalleryItem[]>([]);
@@ -62,13 +29,11 @@ export default function DynamicGallery() {
       if (data && data.length > 0) {
         setWorks(data);
       } else {
-        // Usar datos de muestra si la base de datos no tiene registros
-        setWorks(FALLBACK_WORKS);
+        setWorks([]);
       }
     } catch (err) {
       console.error('Error cargando galería en frontend:', err);
-      // En caso de error, usar datos estáticos para no romper la UI
-      setWorks(FALLBACK_WORKS);
+      setWorks([]);
     } finally {
       setLoading(false);
     }
@@ -96,6 +61,12 @@ export default function DynamicGallery() {
         <div className="text-center py-12">
           <div className="animate-spin h-6 w-6 border-b-2 border-blue-sl mx-auto"></div>
         </div>
+      ) : works.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <span className="text-4xl block mb-2">📹</span>
+          <p className="text-sm font-bold text-slate-700">Próximamente más trabajos en video</p>
+          <p className="text-xs mt-1">Estamos actualizando nuestra galería.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {works.map((work) => (
@@ -107,7 +78,7 @@ export default function DynamicGallery() {
               <div className="relative aspect-square w-full bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 group-hover:text-slate-400 transition-colors">
                 {work.image_url ? (
                   work.image_url.toLowerCase().match(/\.(mp4|webm)$/i) ? (
-                    <video src={work.image_url} autoPlay loop muted playsInline className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
+                    <video src={work.image_url} autoPlay loop muted playsInline controls={false} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

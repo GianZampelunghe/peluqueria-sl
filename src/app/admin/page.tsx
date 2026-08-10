@@ -489,7 +489,7 @@ export default function AdminPanel() {
         .from('gallery')
         .insert({
           title: galleryTitle.trim(),
-          category: galleryCategory.trim() || 'Barbería',
+          category: galleryCategory.trim() || 'Corte',
           image_url: publicUrl
         })
         .select('*')
