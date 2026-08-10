@@ -1093,7 +1093,7 @@ export default function AdminPanel() {
 
                   <label className="w-full py-3.5 px-4 bg-slate-50 border border-dashed border-slate-300 hover:border-blue-sl/50 hover:bg-blue-sl/5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 text-xs font-bold text-slate-600 hover:text-blue-sl shadow-sm">
                     <ImageIcon className="w-4 h-4 text-slate-500" />
-                    <span>📷 Seleccionar archivos de la fototeca</span>
+                    <span>📷 Seleccionar archivos de la fototeca (Fotos o Vídeos)</span>
                     <input
                       type="file"
                       multiple
@@ -1105,6 +1105,7 @@ export default function AdminPanel() {
                           setGalleryFiles(prev => [...prev, ...files]);
                           setGalleryFilePreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
                         }
+                        e.target.value = '';
                       }}
                     />
                   </label>
