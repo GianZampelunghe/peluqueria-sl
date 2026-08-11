@@ -97,6 +97,14 @@ export default function AdminPanel() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [loadingCRM, setLoadingCRM] = useState(false);
   const [loadingGallery, setLoadingGallery] = useState(false);
+
+  // Reserva manual desde admin
+  const [isManualBookingOpen, setIsManualBookingOpen] = useState(false);
+  const [selectedManualSlot, setSelectedManualSlot] = useState<DailySlot | null>(null);
+  const [manualBookingName, setManualBookingName] = useState('');
+  const [manualBookingPhone, setManualBookingPhone] = useState('');
+  const [manualBookingLoading, setManualBookingLoading] = useState(false);
+  const [manualBookingError, setManualBookingError] = useState('');
   
   // Validar sesión inicial de Supabase Auth
   useEffect(() => {
@@ -360,6 +368,120 @@ export default function AdminPanel() {
       setDailySlots(prev => prev.map(s => s.id === slotId ? { ...s, is_available: !currentAvailable } : s));
     } catch (err) {
       console.error('Error al cambiar disponibilidad:', err);
+    }
+  };
+
+  const handleOpenManualBooking = (slot: DailySlot) => {
+    if (slot.is_available) {
+      // Si está libre, abrimos el modal para reservar manual o bloquear
+      setSelectedManualSlot(slot);
+      setIsManualBookingOpen(true);
+      setManualBookingName('');
+      setManualBookingPhone('');
+      setManualBookingError('');
+    } else {
+      // Si ya estaba bloqueado, lo volvemos a habilitar directamente
+      handleToggleSlotAvailability(slot.id, slot.is_available);
+    }
+  };
+
+  const handleConfirmManualBooking = async () => {
+    if (!selectedManualSlot) return;
+    if (!manualBookingName.trim()) {
+      setManualBookingError('El nombre es obligatorio.');
+      return;
+    }
+    
+    let cleanPhone = manualBookingPhone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      setManualBookingError('El teléfono es obligatorio.');
+      return;
+    }
+    if (cleanPhone.length === 10) {
+      cleanPhone = '549' + cleanPhone;
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('15')) {
+      cleanPhone = '549' + cleanPhone.slice(2);
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('9')) {
+      cleanPhone = '54' + cleanPhone;
+    }
+
+    try {
+      setManualBookingLoading(true);
+      setManualBookingError('');
+
+      // 1. CRM - Crear o actualizar cliente
+      let clientId: string | null = null;
+      try {
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .maybeSingle();
+
+        if (existingClient?.id) {
+          clientId = existingClient.id;
+        } else {
+          const { data: newClient } = await supabase
+            .from('clients')
+            .insert({
+              fullname: manualBookingName.trim(),
+              phone: cleanPhone,
+              cuts_completed: 0,
+            })
+            .select('id')
+            .maybeSingle();
+
+          if (newClient?.id) {
+            clientId = newClient.id;
+          }
+        }
+      } catch (clientErr) {
+        console.warn('Error en CRM (reserva manual):', clientErr);
+      }
+
+      // 2. Insertar Reserva
+      const { data: newBooking, error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          client_id: clientId,
+          fullname: manualBookingName.trim(),
+          phone: cleanPhone,
+          booking_date: selectedManualSlot.date,
+          booking_time: selectedManualSlot.time_slot,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (bookingError) {
+        if (bookingError.code === '23505') {
+          throw new Error('Este turno ya fue reservado (duplicado).');
+        }
+        throw bookingError;
+      }
+
+      if (newBooking) {
+        setBookings(prev => [...prev, newBooking as Booking]);
+      }
+
+      // 3. Bloquear horario para que no salga público
+      await supabase
+        .from('daily_slots')
+        .update({ is_available: false })
+        .eq('id', selectedManualSlot.id);
+        
+      setDailySlots(prev => prev.map(s => s.id === selectedManualSlot.id ? { ...s, is_available: false } : s));
+
+      setIsManualBookingOpen(false);
+      setSelectedManualSlot(null);
+      
+      // Mostrar feedback simple
+      alert('¡Turno reservado manualmente con éxito!');
+    } catch (err: any) {
+      console.error('Error al hacer reserva manual:', err);
+      setManualBookingError(err.message || 'Error al agendar. Intenta de nuevo.');
+    } finally {
+      setManualBookingLoading(false);
     }
   };
 
@@ -979,13 +1101,13 @@ export default function AdminPanel() {
                         <div className="flex items-center gap-1.5">
                           {!isBooked && (
                             <button
-                              onClick={() => handleToggleSlotAvailability(slot.id, slot.is_available)}
+                              onClick={() => handleOpenManualBooking(slot)}
                               className={`p-1.5 rounded-lg border text-xs cursor-pointer ${
                                 slot.is_available
-                                  ? 'bg-white border-slate-200 text-slate-500 hover:text-red-500'
+                                  ? 'bg-white border-slate-200 text-slate-500 hover:text-blue-500'
                                   : 'bg-red-100 border-red-200 text-red-500 hover:text-emerald-600'
                               }`}
-                              title={slot.is_available ? 'Bloquear horario' : 'Habilitar horario'}
+                              title={slot.is_available ? 'Reservar Manualmente o Bloquear' : 'Habilitar horario'}
                             >
                               <span className="text-[10px] block w-3.5 h-3.5 leading-none">
                                 {slot.is_available ? '🚫' : '✓'}
@@ -1303,6 +1425,78 @@ export default function AdminPanel() {
                   <span>{savingSettings ? 'Guardando...' : 'Guardar Ajustes'}</span>
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL RESERVA MANUAL */}
+        {isManualBookingOpen && selectedManualSlot && (
+          <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+              <h3 className="text-xl font-black text-slate-800 mb-1">
+                Reservar Manualmente
+              </h3>
+              <p className="text-sm text-slate-500 mb-5">
+                {selectedManualSlot.date} a las {selectedManualSlot.time_slot} hs
+              </p>
+
+              {manualBookingError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-medium flex items-start gap-2">
+                  <span className="font-bold">⚠️</span>
+                  <span>{manualBookingError}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Nombre Completo</label>
+                  <input
+                    type="text"
+                    value={manualBookingName}
+                    onChange={(e) => setManualBookingName(e.target.value)}
+                    placeholder="Ej: Juan Pérez"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-sl/20 transition-all font-medium text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase">Número de WhatsApp</label>
+                  <input
+                    type="tel"
+                    value={manualBookingPhone}
+                    onChange={(e) => setManualBookingPhone(e.target.value)}
+                    placeholder="Ej: 2215551234"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-sl/20 transition-all font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-2">
+                <button
+                  onClick={handleConfirmManualBooking}
+                  disabled={manualBookingLoading}
+                  className="w-full bg-blue-sl hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition-colors disabled:opacity-50 text-sm cursor-pointer"
+                >
+                  {manualBookingLoading ? 'Confirmando...' : 'Confirmar Reserva Manual'}
+                </button>
+                <button
+                  onClick={() => {
+                    handleToggleSlotAvailability(selectedManualSlot.id, true);
+                    setIsManualBookingOpen(false);
+                    setSelectedManualSlot(null);
+                  }}
+                  disabled={manualBookingLoading}
+                  className="w-full bg-red-50 text-red-600 hover:bg-red-100 font-bold py-3 rounded-xl transition-colors disabled:opacity-50 text-sm cursor-pointer"
+                >
+                  Solo Bloquear Horario (Sin Cliente)
+                </button>
+                <button
+                  onClick={() => setIsManualBookingOpen(false)}
+                  disabled={manualBookingLoading}
+                  className="w-full bg-slate-100 text-slate-500 hover:bg-slate-200 font-bold py-3 rounded-xl transition-colors disabled:opacity-50 text-sm mt-2 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         )}
